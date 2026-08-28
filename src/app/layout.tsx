@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Baloo_2, Nunito } from "next/font/google";
+import { Baloo_2, Inter, Nunito } from "next/font/google";
 import "./globals.css";
 import { AntdRegistry } from "@ant-design/nextjs-registry";
 import { ConfigProvider } from "antd";
@@ -19,6 +19,18 @@ const nunito = Nunito({
   subsets: ["latin", "vietnamese"],
   weight: ["400", "600", "700", "800"],
   variable: "--font-nunito",
+  display: "swap",
+});
+
+// Inter: chữ grotesque trung tính cho khu v2 (người đi làm). Baloo bo tròn
+// bụ bẫm đọc ra chất trẻ em rõ hơn cả màu, nên v2 đổi cả tiêu đề lẫn thân chữ
+// sang một họ duy nhất — phân cấp bằng độ đậm thay vì bằng hai kiểu chữ.
+const inter = Inter({
+  subsets: ["latin", "vietnamese"],
+  // Có 800 vì base layer đặt h1–h4 ở 800 và nút dùng `font-extrabold`; thiếu
+  // nét này thì trình duyệt tự bôi đậm giả, chữ nhoè và lệch so với v1.
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-inter",
   display: "swap",
 });
 
@@ -46,7 +58,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="vi" className={`${baloo.variable} ${nunito.variable}`}>
+    <html
+      lang="vi"
+      className={`${baloo.variable} ${nunito.variable} ${inter.variable}`}
+    >
       <body>
         <AntdRegistry>
           <ConfigProvider theme={antdTheme}>{children}</ConfigProvider>

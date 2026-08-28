@@ -65,6 +65,38 @@
   --font-nunito: "Nunito";
 }
 
+/* ===== Bảng màu v2 (người đi làm), chép từ globals.css ===== */
+[data-track="v2"] {
+  --color-ink: #1f2333;
+  --color-ink-soft: #5a6076;
+  --color-ink-faint: #8b91a6;
+  --color-cloud: #f7f8fa;
+  --color-cloud-deep: #e3e6ec;
+
+  --color-grape: #574fb5;
+  --color-grape-dark: #3d3689;
+  --color-grape-soft: #ecebf7;
+
+  --color-sky: #2b7396;
+  --color-sky-dark: #1f5e7f;
+  --color-sky-soft: #e6f0f6;
+
+  --color-sun: #c08d2b;
+  --color-sun-dark: #8a6412;
+  --color-sun-soft: #f8f2e3;
+
+  --color-leaf: #35805a;
+  --color-leaf-dark: #2b6d4b;
+  --color-leaf-soft: #e7f2ec;
+
+  --color-cherry: #c04a5c;
+  --color-cherry-dark: #963543;
+  --color-cherry-soft: #f8ebed;
+
+  background: var(--color-cloud);
+  color: var(--color-ink);
+}
+
 /* ===== @layer base, nguyên văn ===== */
 :root {
     --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -484,6 +516,149 @@ header.top p { margin: 0; max-width: 640px; font-weight: 700; color: var(--color
         <p class="swatch-value">#fff6dd</p>
       </div></div>
       </div></div>
+    </section>
+
+
+    <section class="section">
+      <h2>Bảng màu v2 — người đi làm</h2>
+      <p class="section-desc">Cùng tên token, cùng ngữ nghĩa, chỉ hạ độ bão hoà. Không có token mới nào — utility Tailwind biên dịch thành <code>var(--color-*)</code> nên chỉ cần định nghĩa lại các biến đó trong <code>[data-track="v2"]</code> là mọi component tự đổi màu. Hiệu ứng bấm và animation giữ nguyên.</p>
+      <div class="panel" data-track="v2" style="padding:20px;border-radius:var(--radius-card)">
+      <div class="group">
+        <h3>Chữ và nền — 60%</h3>
+        <div class="grid">
+      <div>
+        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-ink)"></div>
+        <p class="swatch-name">ink</p>
+        <p class="swatch-value">#1f2333</p>
+      </div>
+      <div>
+        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-ink-soft)"></div>
+        <p class="swatch-name">ink-soft</p>
+        <p class="swatch-value">#5a6076</p>
+      </div>
+      <div>
+        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-ink-faint)"></div>
+        <p class="swatch-name">ink-faint</p>
+        <p class="swatch-value">#8b91a6</p>
+      </div>
+      <div>
+        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-cloud)"></div>
+        <p class="swatch-name">cloud</p>
+        <p class="swatch-value">#f7f8fa</p>
+      </div>
+      <div>
+        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-cloud-deep)"></div>
+        <p class="swatch-name">cloud-deep</p>
+        <p class="swatch-value">#e3e6ec</p>
+      </div></div>
+      </div>
+      <div class="group">
+        <h3>Chủ đạo — 30%</h3>
+        <div class="grid">
+      <div>
+        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-grape)"></div>
+        <p class="swatch-name">grape</p>
+        <p class="swatch-value">#574fb5</p>
+      </div>
+      <div>
+        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-grape-dark)"></div>
+        <p class="swatch-name">grape-dark</p>
+        <p class="swatch-value">#3d3689</p>
+      </div>
+      <div>
+        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-grape-soft)"></div>
+        <p class="swatch-name">grape-soft</p>
+        <p class="swatch-value">#ecebf7</p>
+      </div>
+      <div>
+        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-sky)"></div>
+        <p class="swatch-name">sky</p>
+        <p class="swatch-value">#2b7396</p>
+      </div>
+      <div>
+        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-sky-dark)"></div>
+        <p class="swatch-name">sky-dark</p>
+        <p class="swatch-value">#1f5e7f</p>
+      </div>
+      <div>
+        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-sky-soft)"></div>
+        <p class="swatch-name">sky-soft</p>
+        <p class="swatch-value">#e6f0f6</p>
+      </div></div>
+      </div>
+      <div class="group">
+        <h3>Nhấn — 10%</h3>
+        <div class="grid">
+      <div>
+        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-leaf)"></div>
+        <p class="swatch-name">leaf</p>
+        <p class="swatch-value">#35805a</p>
+      </div>
+      <div>
+        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-leaf-dark)"></div>
+        <p class="swatch-name">leaf-dark</p>
+        <p class="swatch-value">#2b6d4b</p>
+      </div>
+      <div>
+        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-leaf-soft)"></div>
+        <p class="swatch-name">leaf-soft</p>
+        <p class="swatch-value">#e7f2ec</p>
+      </div>
+      <div>
+        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-cherry)"></div>
+        <p class="swatch-name">cherry</p>
+        <p class="swatch-value">#c04a5c</p>
+      </div>
+      <div>
+        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-cherry-dark)"></div>
+        <p class="swatch-name">cherry-dark</p>
+        <p class="swatch-value">#963543</p>
+      </div>
+      <div>
+        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-cherry-soft)"></div>
+        <p class="swatch-name">cherry-soft</p>
+        <p class="swatch-value">#f8ebed</p>
+      </div>
+      <div>
+        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-sun)"></div>
+        <p class="swatch-name">sun</p>
+        <p class="swatch-value">#c08d2b</p>
+      </div>
+      <div>
+        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-sun-dark)"></div>
+        <p class="swatch-name">sun-dark</p>
+        <p class="swatch-value">#8a6412</p>
+      </div>
+      <div>
+        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-sun-soft)"></div>
+        <p class="swatch-name">sun-soft</p>
+        <p class="swatch-value">#f8f2e3</p>
+      </div></div>
+      </div>
+      <div class="group">
+        <h3>Nút — vẫn lún khi bấm, bấm thử</h3>
+        <div class="row">
+      <button class="btn btn-push bg-grape"
+        style="--push-shade:var(--color-grape-dark)"
+        title="Hành động chính">grape</button>
+      <button class="btn btn-push bg-sky"
+        style="--push-shade:var(--color-sky-dark)"
+        title="Hành động phụ">sky</button>
+      <button class="btn btn-push bg-sun"
+        style="--push-shade:var(--color-sun-dark)"
+        title="Thưởng">sun</button>
+      <button class="btn btn-push bg-leaf"
+        style="--push-shade:var(--color-leaf-dark)"
+        title="Đúng">leaf</button>
+      <button class="btn btn-push bg-cherry"
+        style="--push-shade:var(--color-cherry-dark)"
+        title="Sai">cherry</button>
+      <button class="btn btn-push "
+        style="background:#fff;--push-shade:var(--color-cloud-deep)"
+        title="Trung tính">plain</button></div>
+      </div>
+      <p class="note">Chữ trắng trên nền <code>grape</code>/<code>sky</code>/<code>leaf</code>/<code>cherry</code> đều đạt tương phản AA (≥4.5:1); <code>sun</code> dùng chữ <code>ink</code> như v1. Các sắc <code>-dark</code> đặt trên nền <code>-soft</code> cũng đạt AA.</p>
+      </div>
     </section>
 
 

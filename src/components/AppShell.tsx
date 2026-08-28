@@ -16,6 +16,7 @@ import {
   Layers,
   Newspaper,
   FolderTree,
+  MessageSquareText,
   LogIn,
   Sparkles,
   Users,
@@ -118,6 +119,26 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       label: "Quản Lý Thẻ",
       icon: <Newspaper size={22} />,
       path: "/admin/cards",
+      adminOnly: true,
+    },
+    // Khu v2 (người đi làm). Route tách riêng khỏi v1 để sau này gỡ v1 chỉ
+    // cần xoá thư mục, không phải bóc v2 ra khỏi từng form đang lẫn lộn.
+    {
+      label: "v2 · Nhóm Chức Năng",
+      icon: <FolderTree size={22} />,
+      path: "/admin/v2/categories",
+      adminOnly: true,
+    },
+    {
+      label: "v2 · Chức Năng",
+      icon: <Layers size={22} />,
+      path: "/admin/v2/topics",
+      adminOnly: true,
+    },
+    {
+      label: "v2 · Câu Mẫu",
+      icon: <MessageSquareText size={22} />,
+      path: "/admin/v2/cards",
       adminOnly: true,
     },
   ];

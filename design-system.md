@@ -56,6 +56,20 @@ Mỗi màu có ba dạng:
 - **`-dark`** — bóng đặc của nút 3D (gán qua `--push-shade`), và chữ đậm trên nền `-soft`
 - **`-soft`** — nền nhạt cho ô số liệu, trạng thái đáp án
 
+### Hai bảng màu, một bộ token
+
+Hệ thống phục vụ hai tập người dùng: **v1** cho trẻ em, **v2** cho người đi làm. Người lớn không cần màu tươi như trẻ con, nhưng đó là lý do đổi **giá trị**, không phải lý do đổi **token**.
+
+Nên v2 **không có token riêng**. Nó định nghĩa lại đúng các biến `--color-*` ở trên trong scope `[data-track="v2"]` của [globals.css](src/app/globals.css), với cùng bộ tên và cùng ngữ nghĩa, chỉ hạ độ bão hoà. Utility của Tailwind biên dịch thành `var(--color-grape)` chứ không nội tuyến mã màu, nên **mọi component trong `ui/` tự đổi màu mà không sửa một dòng JSX nào**.
+
+Hệ quả cần nhớ:
+
+- Viết UI cho v2 vẫn dùng `bg-grape`, `text-leaf-dark`… y như v1. Đừng bịa ra `bg-grape-pro`.
+- Bọc khu v2 bằng một phần tử có `data-track="v2"`. Scope này tự sơn nền của nó, vì layout lồng nhau của App Router không gắn thuộc tính lên `<html>` được.
+- Thêm token mới thì phải thêm ở **cả hai** bảng — thiếu ở v2, component sẽ rơi về giá trị tươi của v1 và lạc lõng giữa màn hình.
+
+**Hiệu ứng tương tác không phân biệt hai bảng.** `.btn-push` và toàn bộ `.anim-*` dùng chung. Nút lún khi bấm và nảy khi trả lời đúng là *phản hồi thao tác* — người lớn cũng cần biết máy đã nhận lệnh. Bỏ chúng đi để trông "nghiêm túc" là hiểu nhầm chúng thành đồ trang trí trẻ con.
+
 ### Cấm
 
 - Hex thô trong JSX, `style={{}}`, hay CSS.
