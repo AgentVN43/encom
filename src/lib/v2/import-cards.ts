@@ -8,13 +8,17 @@ import type { V2Register } from "./types";
  * pháp: gạch ngang có khoảng trắng hai bên, không cắt nhầm từ ghép
  * ("T-shirt") hay link.
  *
- *   Can we schedule [a call]? - Mình sắp xếp một cuộc gọi nhé? - trang trọng
- *   └── tiếng Anh, ngoặc vuông     └── tiếng Việt              └── mức trang trọng
- *                                                                (không bắt buộc)
+ *   # Xin lỗi                          ← đổi chủ đề cho các dòng bên dưới
+ *   Sorry, [my bad]! - Xin lỗi nhé! - thân mật
+ *   └── tiếng Anh, ngoặc vuông  └── tiếng Việt  └── mức trang trọng
+ *                                                 (không bắt buộc)
  *
- * Lĩnh vực (Work/Life/Social) KHÔNG nằm trong dòng nhập mà chọn một lần cho
- * cả loạt ở khu admin: một lần nhập gần như luôn cùng một lĩnh vực, và tên
- * lĩnh vực sửa được nên không kiểm tra trước được như mức trang trọng.
+ * Chủ đề đi bằng DÒNG TIÊU ĐỀ chứ không thêm cột: dòng nhập đã có ba cột mà
+ * hai cột cuối đều tuỳ chọn và nhận diện bằng nội dung — thêm cột nữa thì
+ * không ai nhớ nổi thứ tự, và chỉ cần câu tiếng Việt trùng tên chủ đề là tách
+ * sai. Tiêu đề bắt đầu bằng '#' thì dứt khoát, không phải đoán.
+ *
+ * Lĩnh vực (Work/Life/Social) vẫn chọn một lần cho cả loạt ở khu admin.
  */
 const SEPARATOR = /\s+-\s+/;
 
@@ -35,10 +39,20 @@ const REGISTER_ALIASES: Record<string, V2Register> = {
   casual: "informal",
 };
 
+/** Chủ đề đã có trong DB, để đối chiếu tên trong dòng tiêu đề */
+export interface ImportTopic {
+  id: string;
+  name: string;
+}
+
 export interface ParsedV2Row {
   /** Số dòng trong ô nhập, tính từ 1 — để báo lỗi cho đúng chỗ */
   line: number;
   raw: string;
+  /** Dòng tiêu đề '#' — không phải câu, chỉ đổi chủ đề cho phần bên dưới */
+  isHeader?: boolean;
+  /** Chủ đề nhận được từ tiêu đề gần nhất phía trên, hoặc chủ đề mặc định */
+  topic_id: string;
   vietnamese_text: string;
   /** Câu hoàn chỉnh, đã bỏ ngoặc vuông */
   english_text: string;
@@ -57,13 +71,17 @@ export interface ParseV2Result {
 }
 
 export const IMPORT_PLACEHOLDER =
+  "# Đề nghị\n" +
   "Could you possibly spare [a moment]? - Anh/chị cho em xin một phút được không? - trang trọng\n" +
   "Can we schedule [a call] next week? - Mình sắp xếp một cuộc gọi tuần sau nhé? - trung tính\n" +
-  "Got [a sec]? - Rảnh chút không? - thân mật";
+  "\n" +
+  "# Xin lỗi\n" +
+  "Sorry, [my bad]! - Xin lỗi nhé! - thân mật";
 
 export const IMPORT_HINT =
   "Mỗi dòng một câu: câu tiếng Anh - câu tiếng Việt - mức trang trọng " +
-  "(không bắt buộc, mặc định trung tính). Đặt trong [ ] phần đổi được.";
+  "(không bắt buộc, mặc định trung tính). Dòng '# Tên chủ đề' đổi chủ đề cho " +
+  "các dòng bên dưới. Đặt trong [ ] phần đổi được.";
 
 /**
  * Cột cuối có phải mức trang trọng không.
@@ -120,6 +138,7 @@ function parseLine(raw: string, line: number): ParsedV2Row {
   return {
     line,
     raw,
+    topic_id: "",
     vietnamese_text,
     english_text,
     chunks,
@@ -129,22 +148,77 @@ function parseLine(raw: string, line: number): ParsedV2Row {
   };
 }
 
+/** Dòng tiêu đề hỏng — giữ lại để báo đúng số dòng cho admin */
+function headerError(line: number, raw: string, error: string): ParsedV2Row {
+  return {
+    line,
+    raw,
+    isHeader: true,
+    topic_id: "",
+    vietnamese_text: "",
+    english_text: "",
+    chunks: [],
+    register: DEFAULT_REGISTER,
+    error,
+  };
+}
+
 /**
  * Tách văn bản dán vào thành danh sách thẻ.
+ *
  * Bỏ qua dòng trống. Dòng lỗi được giữ lại kèm lý do để admin sửa.
+ *
+ * `defaultTopicId` áp cho các dòng đứng TRƯỚC tiêu đề đầu tiên — dán một loạt
+ * cùng chức năng thì không cần gõ tiêu đề nào cả.
  */
-export function parseV2ImportText(text: string): ParseV2Result {
+export function parseV2ImportText(
+  text: string,
+  topics: ImportTopic[] = [],
+  defaultTopicId = ""
+): ParseV2Result {
   const rows: ParsedV2Row[] = [];
+  let currentTopicId = defaultTopicId;
 
   text.split(/\r?\n/).forEach((raw, i) => {
     const trimmed = raw.trim();
     if (!trimmed) return; // dòng trống không tính là lỗi
-    rows.push(parseLine(trimmed, i + 1));
+    const line = i + 1;
+
+    const header = /^#\s*(.*)$/.exec(trimmed);
+    if (header) {
+      const name = header[1].trim();
+      const found = topics.find(
+        (t) => t.name.trim().toLowerCase() === name.toLowerCase()
+      );
+      if (!name) {
+        // Đặt rỗng chứ không giữ chủ đề cũ: tiêu đề hỏng mà vẫn đổ tiếp vào
+        // chủ đề trước đó là âm thầm gán sai chức năng cho cả khối bên dưới
+        currentTopicId = "";
+        rows.push(headerError(line, trimmed, "Dòng tiêu đề thiếu tên chủ đề"));
+      } else if (!found) {
+        currentTopicId = "";
+        rows.push(
+          headerError(line, trimmed, `Không có chủ đề nào tên "${name}"`)
+        );
+      } else {
+        currentTopicId = found.id;
+      }
+      return;
+    }
+
+    const row = parseLine(trimmed, line);
+    row.topic_id = currentTopicId;
+    if (!row.error && !row.topic_id) {
+      row.error =
+        "Chưa rõ chủ đề — thêm dòng '# Tên chủ đề' phía trên, hoặc chọn chủ đề mặc định";
+    }
+    rows.push(row);
   });
 
   return {
     rows,
-    valid: rows.filter((r) => !r.error),
+    // Tiêu đề không phải câu nên không tính vào số sẽ nhập
+    valid: rows.filter((r) => !r.error && !r.isHeader),
     invalid: rows.filter((r) => r.error),
   };
 }

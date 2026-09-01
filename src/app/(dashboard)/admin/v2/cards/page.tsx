@@ -7,6 +7,7 @@ import {
   createV2CardsWithChunks,
   deleteV2Card,
   getCardCategories,
+  getV2CardCounts,
   getV2Cards,
   getV2Categories,
   getV2Chunks,
@@ -83,6 +84,8 @@ export default function AdminV2CardsPage() {
   const [vietnamese, setVietnamese] = useState("");
   /** Dòng tiếng Anh có ngoặc vuông đánh dấu chỗ thay được */
   const [englishLine, setEnglishLine] = useState("");
+  /** Chủ đề của riêng thẻ đang sửa — tách khỏi ô lọc để đổi được chức năng */
+  const [formTopicId, setFormTopicId] = useState("");
   const [register, setRegister] = useState<V2Register>("neutral");
   const [cardCategories, setCardCategoriesState] = useState<string[]>([]);
   const [position, setPosition] = useState(0);
@@ -97,7 +100,10 @@ export default function AdminV2CardsPage() {
   const [importing, setImporting] = useState(false);
 
   /** Phân tích lại mỗi lần gõ — admin thấy lỗi ngay thay vì sau khi bấm Nhập */
-  const parsed = useMemo(() => parseV2ImportText(importText), [importText]);
+  const parsed = useMemo(
+    () => parseV2ImportText(importText, topics, topicId),
+    [importText, topics, topicId]
+  );
   const warned = useMemo(
     () => parsed.valid.filter((r) => r.warning),
     [parsed]
@@ -210,6 +216,7 @@ export default function AdminV2CardsPage() {
     setEditing(null);
     setVietnamese("");
     setEnglishLine("");
+    setFormTopicId(topicId);
     setRegister("neutral");
     setCardCategoriesState([]);
     setPosition(cards.length);
@@ -224,6 +231,7 @@ export default function AdminV2CardsPage() {
     setEnglishLine(
       existing.length > 0 ? formatChunks(existing) : card.english_text
     );
+    setFormTopicId(card.topic_id);
     setRegister(card.register);
     setCardCategoriesState(catByCard[card.id] ?? []);
     setPosition(card.position);
@@ -239,10 +247,14 @@ export default function AdminV2CardsPage() {
       message.error("Vui lòng nhập câu tiếng Anh");
       return;
     }
+    if (!formTopicId) {
+      message.error("Vui lòng chọn chức năng giao tiếp");
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
-        topic_id: topicId,
+        topic_id: formTopicId,
         vietnamese_text: vietnamese.trim(),
         // Câu hoàn chỉnh suy từ mẩu, không bắt gõ hai lần — gõ hai lần là hai
         // bản dễ lệch, mà lệch thì bài ôn chấm một đằng hiện một nẻo
@@ -262,7 +274,10 @@ export default function AdminV2CardsPage() {
 
       message.success(editing ? "Đã cập nhật thẻ" : "Đã tạo thẻ mới");
       setDrawerOpen(false);
-      loadCards(topicId);
+      // Chuyển ô lọc sang chủ đề vừa lưu, nếu không thẻ biến mất khỏi danh
+      // sách và người soạn tưởng lưu hỏng
+      if (formTopicId !== topicId) setTopicId(formTopicId);
+      else loadCards(topicId);
     } catch (err: unknown) {
       message.error(
         "Lỗi: " + (err instanceof Error ? err.message : "Lỗi không xác định")
@@ -273,29 +288,48 @@ export default function AdminV2CardsPage() {
   };
 
   const handleImport = async () => {
-    if (!topicId) {
-      message.error("Chọn chủ đề trước khi nhập");
-      return;
-    }
     if (parsed.valid.length === 0) {
       message.error("Chưa có dòng nào hợp lệ để nhập");
       return;
     }
     setImporting(true);
     try {
-      const count = await createV2CardsWithChunks(
-        topicId,
-        parsed.valid.map((r) => ({
-          vietnamese_text: r.vietnamese_text,
-          english_text: r.english_text,
-          register: r.register,
-          chunks: r.chunks,
-        })),
-        // Nối tiếp sau thẻ đang có để không đụng số thứ tự của thẻ cũ
-        cards.length,
-        importCategories
+      // Một lần dán có thể trải nhiều chủ đề nhờ dòng tiêu đề '#', nên gom
+      // theo chủ đề rồi ghi từng nhóm
+      const byTopic = new Map<string, typeof parsed.valid>();
+      for (const row of parsed.valid) {
+        const list = byTopic.get(row.topic_id) ?? [];
+        list.push(row);
+        byTopic.set(row.topic_id, list);
+      }
+
+      // Vị trí phải nối tiếp số thẻ ĐANG CÓ của từng chủ đề, không phải của
+      // chủ đề đang mở — nhập vào chủ đề khác mà bắt đầu từ 0 là đè số thứ tự
+      // của thẻ cũ
+      const counts = await getV2CardCounts().catch(
+        () => ({}) as Record<string, number>
       );
-      message.success(`Đã nhập ${count} câu`);
+
+      let total = 0;
+      for (const [tid, rows] of byTopic) {
+        total += await createV2CardsWithChunks(
+          tid,
+          rows.map((r) => ({
+            vietnamese_text: r.vietnamese_text,
+            english_text: r.english_text,
+            register: r.register,
+            chunks: r.chunks,
+          })),
+          counts[tid] ?? 0,
+          importCategories
+        );
+      }
+
+      message.success(
+        byTopic.size > 1
+          ? `Đã nhập ${total} câu vào ${byTopic.size} chức năng`
+          : `Đã nhập ${total} câu`
+      );
       setImportOpen(false);
       setImportText("");
       loadCards(topicId);
@@ -531,9 +565,8 @@ export default function AdminV2CardsPage() {
               className="rounded-xl font-mono text-sm"
             />
             <Text type="secondary" className="mt-1 block text-xs">
-              Nhập vào chủ đề: <strong>
-                {topics.find((t) => t.id === topicId)?.name ?? "—"}
-              </strong>
+              Chủ đề mặc định (cho dòng trước tiêu đề &ldquo;#&rdquo; đầu tiên):{" "}
+              <strong>{topics.find((t) => t.id === topicId)?.name ?? "—"}</strong>
             </Text>
           </div>
 
@@ -632,7 +665,8 @@ export default function AdminV2CardsPage() {
                         ))}
                       </div>
                       <Text type="secondary" className="mt-1 block text-xs">
-                        {r.vietnamese_text} · {REGISTER_LABEL[r.register]}
+                        {r.vietnamese_text} · {REGISTER_LABEL[r.register]} ·{" "}
+                        {topics.find((t) => t.id === r.topic_id)?.name ?? "?"}
                       </Text>
                     </div>
                   ))}
@@ -668,6 +702,23 @@ export default function AdminV2CardsPage() {
       >
         <div className="drawer-handle" />
         <div className="mx-auto max-w-lg space-y-4">
+          <div>
+            <FieldLabel
+              label="Chức năng giao tiếp"
+              hint="Câu này dùng để LÀM GÌ. Phép thử: tên chủ đề phải điền được vào 'Tôi muốn ___' — 'Tôi muốn xin lỗi' đúng, 'Tôi muốn cuộc họp' sai vì đó là tình huống chứ không phải hành động. Đổi ở đây là chuyển thẻ sang chủ đề khác."
+            />
+            <Select
+              value={formTopicId || undefined}
+              onChange={setFormTopicId}
+              size="large"
+              className="w-full rounded-xl"
+              placeholder="Chọn chức năng"
+              showSearch
+              optionFilterProp="label"
+              options={topics.map((t) => ({ value: t.id, label: t.name }))}
+            />
+          </div>
+
           <div>
             <FieldLabel
               label="Câu tiếng Việt"

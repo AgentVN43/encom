@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { parseV2ImportText } from "./import-cards";
 
+const TOPICS = [
+  { id: "t-suggest", name: "Đề nghị" },
+  { id: "t-sorry", name: "Xin lỗi" },
+];
+
 /** Tách một dòng cho gọn — phần lớn test chỉ quan tâm một dòng */
-const one = (text: string) => parseV2ImportText(text).rows[0];
+const one = (text: string) =>
+  parseV2ImportText(text, TOPICS, "t-suggest").rows[0];
 
 describe("parseV2ImportText", () => {
   it("tách đủ ba cột", () => {
@@ -66,13 +72,21 @@ describe("parseV2ImportText", () => {
   });
 
   it("bỏ qua dòng trống, không tính là lỗi", () => {
-    const res = parseV2ImportText("A - Câu A\n\n   \nB - Câu B");
+    const res = parseV2ImportText(
+      "A - Câu A\n\n   \nB - Câu B",
+      TOPICS,
+      "t-suggest"
+    );
     expect(res.rows).toHaveLength(2);
     expect(res.invalid).toHaveLength(0);
   });
 
   it("số dòng báo lỗi tính theo ô nhập, kể cả khi có dòng trống", () => {
-    const res = parseV2ImportText("A - Câu A\n\nthiếu cột tiếng Việt");
+    const res = parseV2ImportText(
+      "A - Câu A\n\nthiếu cột tiếng Việt",
+      TOPICS,
+      "t-suggest"
+    );
     expect(res.invalid[0].line).toBe(3);
   });
 
@@ -108,7 +122,9 @@ describe("parseV2ImportText", () => {
 
   it("gom đúng dòng hợp lệ và dòng lỗi", () => {
     const res = parseV2ImportText(
-      "A - Câu A\nthiếu cột\nB - Câu B - email"
+      "A - Câu A\nthiếu cột\nB - Câu B - thân mật",
+      TOPICS,
+      "t-suggest"
     );
     expect(res.valid).toHaveLength(2);
     expect(res.invalid).toHaveLength(1);
@@ -117,5 +133,73 @@ describe("parseV2ImportText", () => {
   it("văn bản rỗng không sinh dòng nào", () => {
     expect(parseV2ImportText("").rows).toEqual([]);
     expect(parseV2ImportText("\n\n  \n").rows).toEqual([]);
+  });
+});
+
+describe("dòng tiêu đề đổi chủ đề", () => {
+  const parse = (text: string) => parseV2ImportText(text, TOPICS, "t-suggest");
+
+  it("dòng dưới tiêu đề nhận chủ đề của tiêu đề đó", () => {
+    const res = parse("# Xin lỗi\nSorry - Xin lỗi");
+    expect(res.valid).toHaveLength(1);
+    expect(res.valid[0].topic_id).toBe("t-sorry");
+  });
+
+  it("dòng trước tiêu đề đầu tiên dùng chủ đề mặc định", () => {
+    const res = parse("Can we meet - Gặp nhé\n# Xin lỗi\nSorry - Xin lỗi");
+    expect(res.valid[0].topic_id).toBe("t-suggest");
+    expect(res.valid[1].topic_id).toBe("t-sorry");
+  });
+
+  it("nhiều tiêu đề thì mỗi khối vào đúng chủ đề của nó", () => {
+    const res = parse("# Đề nghị\nA - Câu A\nB - Câu B\n# Xin lỗi\nC - Câu C");
+    expect(res.valid.map((r) => r.topic_id)).toEqual([
+      "t-suggest",
+      "t-suggest",
+      "t-sorry",
+    ]);
+  });
+
+  it("khớp tên bỏ qua hoa thường và khoảng trắng", () => {
+    const res = parse("#   xin LỖI  \nSorry - Xin lỗi");
+    expect(res.valid[0].topic_id).toBe("t-sorry");
+  });
+
+  it("tiêu đề hợp lệ không sinh dòng nào — nó chỉ đổi chủ đề", () => {
+    const res = parse("# Xin lỗi\nSorry - Xin lỗi");
+    expect(res.rows).toHaveLength(1);
+    expect(res.valid).toHaveLength(1);
+  });
+
+  it("chỉ tiêu đề HỎNG mới thành dòng, để báo đúng số dòng", () => {
+    const res = parse("# Sai tên\nSorry - Xin lỗi");
+    expect(res.rows.filter((r) => r.isHeader)).toHaveLength(1);
+  });
+
+  it("tên chủ đề không có thì báo lỗi ngay tại dòng tiêu đề", () => {
+    const res = parse("# Không tồn tại\nSorry - Xin lỗi");
+    expect(res.invalid[0].line).toBe(1);
+    expect(res.invalid[0].error).toContain("Không có chủ đề nào tên");
+  });
+
+  it("tiêu đề sai KHÔNG đổ tiếp vào chủ đề trước đó", () => {
+    // Âm thầm gán sai chức năng cho cả khối là lỗi khó phát hiện nhất
+    const res = parse("# Xin lỗi\nA - Câu A\n# Sai tên\nB - Câu B");
+    expect(res.valid.map((r) => r.topic_id)).toEqual(["t-sorry"]);
+    expect(res.invalid.some((r) => r.raw === "B - Câu B")).toBe(true);
+  });
+
+  it("tiêu đề rỗng là lỗi", () => {
+    expect(parse("#\nA - Câu A").invalid[0].error).toContain("thiếu tên");
+  });
+
+  it("không có chủ đề mặc định và chưa có tiêu đề thì báo lỗi", () => {
+    const res = parseV2ImportText("A - Câu A", TOPICS, "");
+    expect(res.valid).toHaveLength(0);
+    expect(res.invalid[0].error).toContain("Chưa rõ chủ đề");
+  });
+
+  it("dòng bắt đầu bằng # luôn là tiêu đề, không bị hiểu thành câu", () => {
+    expect(parse("# Đề nghị - Câu gì đó").rows[0].isHeader).toBe(true);
   });
 });
