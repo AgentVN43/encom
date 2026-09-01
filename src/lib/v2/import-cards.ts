@@ -94,6 +94,22 @@ function readRegister(part: string): V2Register | null {
   return REGISTER_ALIASES[part.trim().toLowerCase()] ?? null;
 }
 
+/**
+ * Cột cuối có phải một DANH SÁCH mức trang trọng không.
+ *
+ * Cần riêng hàm này vì mức là đơn trị: gõ "trung tính, thân mật" thì
+ * `readRegister` trả null, và nếu không bắt lại thì cả cụm đó bị nối vào câu
+ * tiếng Việt — người soạn tưởng đã gắn mức, thực ra vừa nhét rác vào câu mà
+ * không có cảnh báo nào.
+ */
+function looksLikeRegisterList(part: string): boolean {
+  const items = part
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return items.length > 1 && items.every((i) => readRegister(i) !== null);
+}
+
 function parseLine(raw: string, line: number): ParsedV2Row {
   const parts = raw.split(SEPARATOR).map((p) => p.trim());
   const englishLine = parts[0] ?? "";
@@ -103,11 +119,19 @@ function parseLine(raw: string, line: number): ParsedV2Row {
   // tiếng Việt. Chỉ xét khi còn ít nhất hai cột, để dòng hai cột không bị
   // hiểu nhầm câu tiếng Việt thành mức.
   let register: V2Register = DEFAULT_REGISTER;
+  let registerError: string | undefined;
   if (rest.length > 1) {
-    const maybe = readRegister(rest[rest.length - 1]);
+    const last = rest[rest.length - 1];
+    const maybe = readRegister(last);
     if (maybe) {
       register = maybe;
       rest.pop();
+    } else if (looksLikeRegisterList(last)) {
+      // Bỏ cụm đó ra khỏi câu tiếng Việt luôn, để phần xem trước hiện đúng
+      // câu người soạn định viết chứ không kèm đuôi rác
+      rest.pop();
+      registerError =
+        "Mức trang trọng chỉ chọn MỘT. Câu dùng được ở nhiều mức thì tách thành nhiều dòng, mỗi dòng một mức";
     }
   }
 
@@ -125,13 +149,19 @@ function parseLine(raw: string, line: number): ParsedV2Row {
   } else if (chunks.length === 0) {
     // Gõ đúng "[]" hoặc chỉ toàn ngoặc rỗng
     error = "Câu tiếng Anh rỗng sau khi bỏ ngoặc";
+  } else if (registerError) {
+    error = registerError;
   } else {
     const opens = (englishLine.match(/\[/g) ?? []).length;
     const closes = (englishLine.match(/\]/g) ?? []).length;
     if (opens !== closes) {
       warning = "Ngoặc vuông không khớp — kiểm tra lại cách chia mẩu";
     } else if (chunks.length === 1) {
-      warning = "Chỉ một mẩu, bài ghép câu sẽ không có gì để xếp";
+      // Vẫn ra được bài, chỉ là dạng dễ hơn: khay có mẩu nhiễu nên người học
+      // CHỌN đúng câu thay vì XẾP lại thứ tự. Câu ngắn như "Sounds good" thì
+      // để vậy là hợp lý, không cần cố chia.
+      warning =
+        "Câu chưa chia mẩu — người học sẽ chọn đúng câu thay vì xếp thứ tự (dễ hơn). Dùng [ ] để tách phần đổi được nếu câu đủ dài";
     }
   }
 
@@ -208,6 +238,19 @@ export function parseV2ImportText(
 
     const row = parseLine(trimmed, line);
     row.topic_id = currentTopicId;
+
+    // Gõ trần tên chủ đề làm dòng phân cách là phản xạ rất tự nhiên. Báo
+    // "Thiếu câu tiếng Việt" ở đây thì đúng về mặt máy nhưng vô dụng với
+    // người — đoán ra ý định rồi chỉ thẳng cách sửa.
+    if (row.error) {
+      const asTopic = topics.find(
+        (t) => t.name.trim().toLowerCase() === trimmed.toLowerCase()
+      );
+      if (asTopic) {
+        row.error = `Có phải bạn muốn đổi chủ đề? Thêm dấu # ở đầu: "# ${asTopic.name}"`;
+      }
+    }
+
     if (!row.error && !row.topic_id) {
       row.error =
         "Chưa rõ chủ đề — thêm dòng '# Tên chủ đề' phía trên, hoặc chọn chủ đề mặc định";

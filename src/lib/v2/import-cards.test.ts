@@ -108,10 +108,25 @@ describe("parseV2ImportText", () => {
     expect(r.warning).toContain("Ngoặc vuông không khớp");
   });
 
-  it("câu một mẩu thì cảnh báo, không chặn", () => {
+  it("câu chưa chia mẩu thì cảnh báo, không chặn", () => {
     const r = one("Sounds good - Nghe hợp lý");
     expect(r.error).toBeUndefined();
-    expect(r.warning).toContain("một mẩu");
+    expect(r.warning).toContain("chưa chia mẩu");
+  });
+
+  it("gõ nhiều mức trang trọng là LỖI, không âm thầm nhét vào câu tiếng Việt", () => {
+    const r = one(
+      "That sounds like [a good plan] - Nghe có vẻ hợp lý. - trung tính, thân mật"
+    );
+    expect(r.error).toContain("chỉ chọn MỘT");
+    // Cụm mức phải bị tách khỏi câu tiếng Việt, không dính lại thành đuôi rác
+    expect(r.vietnamese_text).toBe("Nghe có vẻ hợp lý.");
+  });
+
+  it("dấu phẩy trong câu tiếng Việt không bị nhầm là danh sách mức", () => {
+    const r = one("Well, ok - Được, cũng ổn thôi");
+    expect(r.error).toBeUndefined();
+    expect(r.vietnamese_text).toBe("Được, cũng ổn thôi");
   });
 
   it("gạch ngang trong từ ghép không bị cắt nhầm", () => {
@@ -201,5 +216,17 @@ describe("dòng tiêu đề đổi chủ đề", () => {
 
   it("dòng bắt đầu bằng # luôn là tiêu đề, không bị hiểu thành câu", () => {
     expect(parse("# Đề nghị - Câu gì đó").rows[0].isHeader).toBe(true);
+  });
+
+  it("gõ trần tên chủ đề thì chỉ thẳng cách sửa, không báo 'thiếu câu tiếng Việt'", () => {
+    const res = parse("Xin lỗi\nSorry - Xin lỗi nhé");
+    expect(res.invalid[0].error).toContain("Thêm dấu #");
+    expect(res.invalid[0].error).toContain("Xin lỗi");
+  });
+
+  it("chữ trần KHÔNG trùng tên chủ đề nào thì giữ nguyên lỗi gốc", () => {
+    expect(parse("Linh tinh").invalid[0].error).toContain(
+      "Thiếu câu tiếng Việt"
+    );
   });
 });
