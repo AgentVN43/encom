@@ -155,7 +155,7 @@ export default function V2ReviewPage() {
           title="Không tải được bài ôn"
           hint={error}
           action={
-            <Button className="mt-2" onClick={() => router.push("/v2")}>
+            <Button className="mt-2" onClick={() => router.push("/home")}>
               Quay lại
             </Button>
           }
@@ -172,7 +172,7 @@ export default function V2ReviewPage() {
           title="Chưa có câu nào đến hạn"
           hint="Lịch giãn cách chỉ đưa câu ra khi đã đến lúc dễ quên. Học thêm câu mới trong lúc chờ."
           action={
-            <Button className="mt-2" onClick={() => router.push("/v2")}>
+            <Button className="mt-2" onClick={() => router.push("/home")}>
               Về trang chủ
             </Button>
           }
@@ -219,7 +219,7 @@ export default function V2ReviewPage() {
             Câu ghép sai sẽ quay lại sớm, câu ghép đúng giãn ra xa hơn.
           </p>
 
-          <Button block className="mt-5" onClick={() => router.push("/v2")}>
+          <Button block className="mt-5" onClick={() => router.push("/home")}>
             Về trang chủ
           </Button>
         </Card>
@@ -239,7 +239,7 @@ export default function V2ReviewPage() {
           <IconButton
             icon={<ArrowLeft size={20} strokeWidth={2.5} />}
             label="Quay lại trang chủ"
-            onClick={() => router.push("/v2")}
+            onClick={() => router.push("/home")}
           />
           <ProgressBar
             percent={percent}

@@ -6,7 +6,7 @@
 <title>Design System — Funny English</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 /* ============================================================
    BẢNG TRA DESIGN SYSTEM — file tĩnh, mở bằng file:// từ ổ đĩa.
@@ -21,58 +21,13 @@
 /* ===== Chép từ @theme của globals.css ===== */
 :root {
 /* --- Chữ & nền (60%) --- */
-  --color-ink: #24243e;
-  --color-ink-soft: #6b6e8f;
-  --color-ink-faint: #9ca0bf;
-  --color-cloud: #f4f7fe;
-  --color-cloud-deep: #e8edfb;
-
-  /* --- Màu chủ đạo (30%) --- */
-  --color-grape: #7c4dff;
-  --color-grape-dark: #5b2fd6;
-  --color-grape-soft: #efe8ff;
-
-  --color-sky: #22b8f0;
-  --color-sky-dark: #0e93c7;
-  --color-sky-soft: #e0f5fe;
-
-  /* --- Màu nhấn & ngữ nghĩa (10%) --- */
-  --color-sun: #ffc93c;
-  --color-sun-dark: #dda600;
-  --color-sun-soft: #fff6dd;
-
-  --color-leaf: #35c759;
-  --color-leaf-dark: #24a344;
-  --color-leaf-soft: #e2f9e8;
-
-  --color-cherry: #ff4757;
-  --color-cherry-dark: #d92d3c;
-  --color-cherry-soft: #ffe8ea;
-
-  /* --- Bo góc: trẻ em thì càng tròn càng thân thiện --- */
-  --radius-blob: 14px;
-  --radius-card: 20px;
-  --radius-pill: 28px;
-  --radius-jumbo: 36px;
-
-  /* --- Font --- */
-  --font-display: var(--font-baloo), system-ui, sans-serif;
-  --font-body: var(--font-nunito), system-ui, sans-serif;
-
-  /* --- Chuyển động --- */
-  --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --font-baloo: "Baloo 2";
-  --font-nunito: "Nunito";
-}
-
-/* ===== Bảng màu v2 (người đi làm), chép từ globals.css ===== */
-[data-track="v2"] {
   --color-ink: #1f2333;
   --color-ink-soft: #5a6076;
   --color-ink-faint: #8b91a6;
   --color-cloud: #f7f8fa;
   --color-cloud-deep: #e3e6ec;
 
+  /* --- Màu chủ đạo (30%) --- */
   --color-grape: #574fb5;
   --color-grape-dark: #3d3689;
   --color-grape-soft: #ecebf7;
@@ -81,6 +36,7 @@
   --color-sky-dark: #1f5e7f;
   --color-sky-soft: #e6f0f6;
 
+  /* --- Màu nhấn & ngữ nghĩa (10%) --- */
   --color-sun: #c08d2b;
   --color-sun-dark: #8a6412;
   --color-sun-soft: #f8f2e3;
@@ -93,8 +49,19 @@
   --color-cherry-dark: #963543;
   --color-cherry-soft: #f8ebed;
 
-  background: var(--color-cloud);
-  color: var(--color-ink);
+  /* --- Bo góc --- */
+  --radius-blob: 14px;
+  --radius-card: 20px;
+  --radius-pill: 28px;
+  --radius-jumbo: 36px;
+
+  /* --- Font --- */
+  --font-display: var(--font-inter), system-ui, sans-serif;
+  --font-body: var(--font-inter), system-ui, sans-serif;
+
+  /* --- Chuyển động --- */
+  --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --font-inter: "Inter";
 }
 
 /* ===== @layer base, nguyên văn ===== */
@@ -408,127 +375,6 @@ header.top p { margin: 0; max-width: 640px; font-weight: 700; color: var(--color
       <div>
         <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-ink)"></div>
         <p class="swatch-name">ink</p>
-        <p class="swatch-value">#24243e</p>
-      </div>
-      <div>
-        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-ink-soft)"></div>
-        <p class="swatch-name">ink-soft</p>
-        <p class="swatch-value">#6b6e8f</p>
-      </div>
-      <div>
-        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-ink-faint)"></div>
-        <p class="swatch-name">ink-faint</p>
-        <p class="swatch-value">#9ca0bf</p>
-      </div>
-      <div>
-        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-cloud)"></div>
-        <p class="swatch-name">cloud</p>
-        <p class="swatch-value">#f4f7fe</p>
-      </div>
-      <div>
-        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-cloud-deep)"></div>
-        <p class="swatch-name">cloud-deep</p>
-        <p class="swatch-value">#e8edfb</p>
-      </div></div>
-      </div>
-      <div class="group">
-        <h3>Màu chủ đạo — 30%</h3>
-        <p>Nhận diện thương hiệu và hành động chính. Biến thể -dark làm bóng nút 3D, -soft làm nền nhạt.</p>
-        <div class="grid">
-      <div>
-        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-grape)"></div>
-        <p class="swatch-name">grape</p>
-        <p class="swatch-value">#7c4dff</p>
-      </div>
-      <div>
-        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-grape-dark)"></div>
-        <p class="swatch-name">grape-dark</p>
-        <p class="swatch-value">#5b2fd6</p>
-      </div>
-      <div>
-        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-grape-soft)"></div>
-        <p class="swatch-name">grape-soft</p>
-        <p class="swatch-value">#efe8ff</p>
-      </div>
-      <div>
-        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-sky)"></div>
-        <p class="swatch-name">sky</p>
-        <p class="swatch-value">#22b8f0</p>
-      </div>
-      <div>
-        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-sky-dark)"></div>
-        <p class="swatch-name">sky-dark</p>
-        <p class="swatch-value">#0e93c7</p>
-      </div>
-      <div>
-        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-sky-soft)"></div>
-        <p class="swatch-name">sky-soft</p>
-        <p class="swatch-value">#e0f5fe</p>
-      </div></div>
-      </div>
-      <div class="group">
-        <h3>Màu nhấn và ngữ nghĩa — 10%</h3>
-        <p>Mỗi màu mang một nghĩa cố định, không dùng lẫn: xanh lá = đúng, đỏ = sai, vàng = thưởng.</p>
-        <div class="grid">
-      <div>
-        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-leaf)"></div>
-        <p class="swatch-name">leaf</p>
-        <p class="swatch-value">#35c759</p>
-      </div>
-      <div>
-        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-leaf-dark)"></div>
-        <p class="swatch-name">leaf-dark</p>
-        <p class="swatch-value">#24a344</p>
-      </div>
-      <div>
-        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-leaf-soft)"></div>
-        <p class="swatch-name">leaf-soft</p>
-        <p class="swatch-value">#e2f9e8</p>
-      </div>
-      <div>
-        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-cherry)"></div>
-        <p class="swatch-name">cherry</p>
-        <p class="swatch-value">#ff4757</p>
-      </div>
-      <div>
-        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-cherry-dark)"></div>
-        <p class="swatch-name">cherry-dark</p>
-        <p class="swatch-value">#d92d3c</p>
-      </div>
-      <div>
-        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-cherry-soft)"></div>
-        <p class="swatch-name">cherry-soft</p>
-        <p class="swatch-value">#ffe8ea</p>
-      </div>
-      <div>
-        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-sun)"></div>
-        <p class="swatch-name">sun</p>
-        <p class="swatch-value">#ffc93c</p>
-      </div>
-      <div>
-        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-sun-dark)"></div>
-        <p class="swatch-name">sun-dark</p>
-        <p class="swatch-value">#dda600</p>
-      </div>
-      <div>
-        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-sun-soft)"></div>
-        <p class="swatch-name">sun-soft</p>
-        <p class="swatch-value">#fff6dd</p>
-      </div></div>
-      </div></div>
-    </section>
-
-
-    <section class="section">
-      <h2>Bảng màu v2 — người đi làm</h2>
-      <p class="section-desc">Cùng tên token, cùng ngữ nghĩa, chỉ hạ độ bão hoà. Không có token mới nào — utility Tailwind biên dịch thành <code>var(--color-*)</code> nên chỉ cần định nghĩa lại các biến đó trong <code>[data-track="v2"]</code> là mọi component tự đổi màu. Hiệu ứng bấm và animation giữ nguyên.</p>
-      <div class="panel" data-track="v2" style="padding:20px;border-radius:var(--radius-card)">
-      <div class="group">
-        <h3>Chữ và nền — 60%</h3>
-        <div class="grid">
-      <div>
-        <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-ink)"></div>
-        <p class="swatch-name">ink</p>
         <p class="swatch-value">#1f2333</p>
       </div>
       <div>
@@ -553,7 +399,8 @@ header.top p { margin: 0; max-width: 640px; font-weight: 700; color: var(--color
       </div></div>
       </div>
       <div class="group">
-        <h3>Chủ đạo — 30%</h3>
+        <h3>Màu chủ đạo — 30%</h3>
+        <p>Nhận diện thương hiệu và hành động chính. Biến thể -dark làm bóng nút 3D, -soft làm nền nhạt.</p>
         <div class="grid">
       <div>
         <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-grape)"></div>
@@ -587,7 +434,8 @@ header.top p { margin: 0; max-width: 640px; font-weight: 700; color: var(--color
       </div></div>
       </div>
       <div class="group">
-        <h3>Nhấn — 10%</h3>
+        <h3>Màu nhấn và ngữ nghĩa — 10%</h3>
+        <p>Mỗi màu mang một nghĩa cố định, không dùng lẫn: xanh lá = đúng, đỏ = sai, vàng = thưởng.</p>
         <div class="grid">
       <div>
         <div class="swatch border-cloud-deep rounded-blob" style="background:var(--color-leaf)"></div>
@@ -634,31 +482,7 @@ header.top p { margin: 0; max-width: 640px; font-weight: 700; color: var(--color
         <p class="swatch-name">sun-soft</p>
         <p class="swatch-value">#f8f2e3</p>
       </div></div>
-      </div>
-      <div class="group">
-        <h3>Nút — vẫn lún khi bấm, bấm thử</h3>
-        <div class="row">
-      <button class="btn btn-push bg-grape"
-        style="--push-shade:var(--color-grape-dark)"
-        title="Hành động chính">grape</button>
-      <button class="btn btn-push bg-sky"
-        style="--push-shade:var(--color-sky-dark)"
-        title="Hành động phụ">sky</button>
-      <button class="btn btn-push bg-sun"
-        style="--push-shade:var(--color-sun-dark)"
-        title="Thưởng">sun</button>
-      <button class="btn btn-push bg-leaf"
-        style="--push-shade:var(--color-leaf-dark)"
-        title="Đúng">leaf</button>
-      <button class="btn btn-push bg-cherry"
-        style="--push-shade:var(--color-cherry-dark)"
-        title="Sai">cherry</button>
-      <button class="btn btn-push "
-        style="background:#fff;--push-shade:var(--color-cloud-deep)"
-        title="Trung tính">plain</button></div>
-      </div>
-      <p class="note">Chữ trắng trên nền <code>grape</code>/<code>sky</code>/<code>leaf</code>/<code>cherry</code> đều đạt tương phản AA (≥4.5:1); <code>sun</code> dùng chữ <code>ink</code> như v1. Các sắc <code>-dark</code> đặt trên nền <code>-soft</code> cũng đạt AA.</p>
-      </div>
+      </div></div>
     </section>
 
 
@@ -691,15 +515,15 @@ header.top p { margin: 0; max-width: 640px; font-weight: 700; color: var(--color
 
     <section class="section">
       <h2>Chữ</h2>
-      <p class="section-desc">Baloo 2 cho tiêu đề và nút, Nunito cho đoạn văn. Cả hai đều đủ dấu tiếng Việt.</p>
+      <p class="section-desc">Một họ chữ duy nhất — Inter — phân cấp bằng độ đậm chứ không bằng hai kiểu chữ. Đủ dấu tiếng Việt.</p>
       <div class="panel"><div class="stack">
       <div>
-        <p class="label">font-display — Baloo 2</p>
-        <p style="font-family:var(--font-display);font-size:30px;font-weight:800;margin:0">Học tiếng Anh thật vui</p>
+        <p class="label">font-display — Inter 800</p>
+        <p style="font-family:var(--font-display);font-size:30px;font-weight:800;margin:0">Học tiếng Anh theo cách của bạn</p>
       </div>
       <div>
-        <p class="label">font-body — Nunito</p>
-        <p style="font-family:var(--font-body);font-size:16px;font-weight:700;margin:0;color:var(--color-ink-soft)">Mỗi ngày một chút, nhớ từ vựng lâu hơn nhiều.</p>
+        <p class="label">font-body — Inter 400–700</p>
+        <p style="font-family:var(--font-body);font-size:16px;font-weight:700;margin:0;color:var(--color-ink-soft)">Mỗi ngày một chút, nhớ được lâu hơn nhiều.</p>
       </div>
       <div>
         <p class="label">Thang chữ</p>

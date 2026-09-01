@@ -4,70 +4,22 @@
    DESIGN TOKENS
    Nguyên tắc 60-30-10: 60% nền trung tính sáng, 30% màu chủ đạo,
    10% màu nhấn. Chữ dùng navy sâu thay vì đen thuần cho bớt gắt.
+
+   Bảng màu hạ bão hoà, dùng chung cho MỌI người học. Trước đây có hai
+   bảng (tươi cho trẻ em, trầm cho người đi làm) qua scope
+   [data-track="v2"] — đã bỏ vì hệ thống không còn chia theo đối tượng
+   mà chia theo ĐƠN VỊ HỌC: học từ vựng hay học theo câu. Một người
+   dùng cả hai, nên chỉ còn một giao diện.
    ============================================================ */
 @theme {
-  /* --- Chữ & nền (60%) --- */
-  --color-ink: #24243e;
-  --color-ink-soft: #6b6e8f;
-  --color-ink-faint: #9ca0bf;
-  --color-cloud: #f4f7fe;
-  --color-cloud-deep: #e8edfb;
-
-  /* --- Màu chủ đạo (30%) --- */
-  --color-grape: #7c4dff;
-  --color-grape-dark: #5b2fd6;
-  --color-grape-soft: #efe8ff;
-
-  --color-sky: #22b8f0;
-  --color-sky-dark: #0e93c7;
-  --color-sky-soft: #e0f5fe;
-
-  /* --- Màu nhấn & ngữ nghĩa (10%) --- */
-  --color-sun: #ffc93c;
-  --color-sun-dark: #dda600;
-  --color-sun-soft: #fff6dd;
-
-  --color-leaf: #35c759;
-  --color-leaf-dark: #24a344;
-  --color-leaf-soft: #e2f9e8;
-
-  --color-cherry: #ff4757;
-  --color-cherry-dark: #d92d3c;
-  --color-cherry-soft: #ffe8ea;
-
-  /* --- Bo góc: trẻ em thì càng tròn càng thân thiện --- */
-  --radius-blob: 14px;
-  --radius-card: 20px;
-  --radius-pill: 28px;
-  --radius-jumbo: 36px;
-
-  /* --- Font --- */
-  --font-display: var(--font-baloo), system-ui, sans-serif;
-  --font-body: var(--font-nunito), system-ui, sans-serif;
-
-  /* --- Chuyển động --- */
-  --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-/* ============================================================
-   BẢNG MÀU v2 — người đi làm
-   Định nghĩa lại ĐÚNG các biến ở trên chứ không thêm token mới: utility của
-   Tailwind biên dịch thành `var(--color-*)`, nên mọi component trong ui/ tự
-   đổi màu mà không phải sửa một dòng JSX nào.
-   Ngữ nghĩa giữ nguyên tuyệt đối — leaf vẫn là đúng, cherry vẫn là sai, sun
-   vẫn là thưởng. Chỉ hạ độ bão hoà cho hợp mắt người lớn.
-   Hiệu ứng (.btn-push, .anim-*) KHÔNG đụng tới: nút lún khi bấm và nảy khi
-   đúng là phản hồi thao tác, người lớn cũng cần, không phải trò trẻ con.
-   Cách dùng: đặt data-track="v2" ở thẻ bọc ngoài cùng của khu v2.
-   ============================================================ */
-[data-track="v2"] {
-  /* Nền ngả xám trung tính thay vì ngả xanh — bớt cảm giác đồ chơi */
+  /* --- Chữ & nền (60%): ngả xám trung tính, không ngả xanh --- */
   --color-ink: #1f2333;
   --color-ink-soft: #5a6076;
   --color-ink-faint: #8b91a6;
   --color-cloud: #f7f8fa;
   --color-cloud-deep: #e3e6ec;
 
+  /* --- Màu chủ đạo (30%) --- */
   --color-grape: #574fb5;
   --color-grape-dark: #3d3689;
   --color-grape-soft: #ecebf7;
@@ -76,6 +28,7 @@
   --color-sky-dark: #1f5e7f;
   --color-sky-soft: #e6f0f6;
 
+  /* --- Màu nhấn & ngữ nghĩa (10%) --- */
   --color-sun: #c08d2b;
   --color-sun-dark: #8a6412;
   --color-sun-soft: #f8f2e3;
@@ -88,19 +41,20 @@
   --color-cherry-dark: #963543;
   --color-cherry-soft: #f8ebed;
 
-  /* Một họ chữ duy nhất, phân cấp bằng độ đậm. Baloo bo tròn bụ bẫm đọc ra
-     chất trẻ em rõ hơn cả màu, nên v2 đổi cả tiêu đề lẫn thân chữ. */
+  /* --- Bo góc --- */
+  --radius-blob: 14px;
+  --radius-card: 20px;
+  --radius-pill: 28px;
+  --radius-jumbo: 36px;
+
+  /* --- Font: một họ duy nhất, phân cấp bằng độ đậm --- */
   --font-display: var(--font-inter), system-ui, sans-serif;
   --font-body: var(--font-inter), system-ui, sans-serif;
 
-  /* Scope tự sơn nền của mình. Cần thiết vì `body` lấy màu nền từ base layer,
-     mà layout lồng nhau của App Router không render được thẻ <html> để gắn
-     data-track lên — thiếu ba dòng này thì viền quanh nội dung v2 vẫn là nền
-     xanh của v1. */
-  background: var(--color-cloud);
-  color: var(--color-ink);
-  min-height: 100dvh;
+  /* --- Chuyển động --- */
+  --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
+
 
 @layer base {
   :root {

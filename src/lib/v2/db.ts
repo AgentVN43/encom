@@ -90,6 +90,22 @@ export async function getV2Cards(topicId: string, context?: V2Context) {
 }
 
 /**
+ * Số thẻ của từng chủ đề, cho trang chủ.
+ *
+ * Chỉ lấy hai cột thay vì `*`: trang chủ chỉ cần đếm, mà câu tiếng Anh/Việt
+ * của cả thư viện là payload lớn không dùng tới.
+ */
+export async function getV2CardCounts(): Promise<Record<string, number>> {
+  const { data, error } = await supabase.from("v2_cards").select("id, topic_id");
+  if (error) throw error;
+  const counts: Record<string, number> = {};
+  for (const row of data ?? []) {
+    counts[row.topic_id] = (counts[row.topic_id] ?? 0) + 1;
+  }
+  return counts;
+}
+
+/**
  * Mẩu câu của một nhóm thẻ, đã xếp theo thứ tự ghép đúng.
  *
  * Lấy cả nhóm trong một lượt chứ không gọi từng thẻ: một phiên ôn tập trộn xen

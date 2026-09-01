@@ -133,7 +133,7 @@ export default function V2LearnPage() {
           title="Không tải được bài học"
           hint={error}
           action={
-            <Button className="mt-2" onClick={() => router.push("/v2")}>
+            <Button className="mt-2" onClick={() => router.push("/home")}>
               Quay lại
             </Button>
           }
@@ -150,7 +150,7 @@ export default function V2LearnPage() {
           title="Đã học hết chủ đề này"
           hint="Mọi câu ở đây đều đã vào lịch ôn tập. Quay lại trang chủ để ôn hoặc chọn chủ đề khác."
           action={
-            <Button className="mt-2" onClick={() => router.push("/v2")}>
+            <Button className="mt-2" onClick={() => router.push("/home")}>
               Về trang chủ
             </Button>
           }
@@ -171,7 +171,7 @@ export default function V2LearnPage() {
               <Button onClick={() => router.push("/v2/review")}>
                 Ôn tập ngay
               </Button>
-              <Button tone="plain" onClick={() => router.push("/v2")}>
+              <Button tone="plain" onClick={() => router.push("/home")}>
                 Về trang chủ
               </Button>
             </div>
@@ -193,7 +193,7 @@ export default function V2LearnPage() {
           <IconButton
             icon={<ArrowLeft size={20} strokeWidth={2.5} />}
             label="Quay lại trang chủ"
-            onClick={() => router.push("/v2")}
+            onClick={() => router.push("/home")}
           />
           <ProgressBar
             percent={percent}

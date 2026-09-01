@@ -32,7 +32,7 @@ Tỉ lệ **60-30-10**: phần lớn diện tích là nền trung tính sáng, m
 | `ink-soft` | Chữ phụ, mô tả |
 | `ink-faint` | Chữ mờ nhất, placeholder |
 
-Chữ dùng navy sâu chứ **không dùng đen thuần** — đen thuần trên nền sáng gắt mắt trẻ.
+Chữ dùng navy sâu chứ **không dùng đen thuần** — đen thuần trên nền sáng gây chói khi đọc lâu.
 
 ### 30% — Màu chủ đạo
 
@@ -46,7 +46,7 @@ Chữ dùng navy sâu chứ **không dùng đen thuần** — đen thuần trên
 | `cherry` | Sai, xoá, cảnh báo |
 | `sun` | Thưởng, huy hiệu, số thứ tự, điểm |
 
-Đây là ràng buộc ngữ nghĩa, không phải gợi ý thẩm mỹ. Dùng `cherry` cho một nút "Lưu" chỉ vì thấy đỏ nổi là phá hệ thống — trẻ đã học được đỏ nghĩa là sai.
+Đây là ràng buộc ngữ nghĩa, không phải gợi ý thẩm mỹ. Dùng `cherry` cho một nút "Lưu" chỉ vì thấy đỏ nổi là phá hệ thống — người học đã quen đỏ nghĩa là sai.
 
 ### Biến thể
 
@@ -56,19 +56,19 @@ Mỗi màu có ba dạng:
 - **`-dark`** — bóng đặc của nút 3D (gán qua `--push-shade`), và chữ đậm trên nền `-soft`
 - **`-soft`** — nền nhạt cho ô số liệu, trạng thái đáp án
 
-### Hai bảng màu, một bộ token
+### Một bảng màu duy nhất
 
-Hệ thống phục vụ hai tập người dùng: **v1** cho trẻ em, **v2** cho người đi làm. Người lớn không cần màu tươi như trẻ con, nhưng đó là lý do đổi **giá trị**, không phải lý do đổi **token**.
+Đã có lúc hệ thống chạy hai bảng màu qua scope `[data-track="v2"]`: tươi cho trẻ em, trầm cho người đi làm. **Đã bỏ.** Hệ thống không chia theo đối tượng người dùng nữa mà chia theo **đơn vị học** — học từ vựng hay học theo câu — và một người dùng cả hai, nên chỉ còn một giao diện.
 
-Nên v2 **không có token riêng**. Nó định nghĩa lại đúng các biến `--color-*` ở trên trong scope `[data-track="v2"]` của [globals.css](src/app/globals.css), với cùng bộ tên và cùng ngữ nghĩa, chỉ hạ độ bão hoà. Utility của Tailwind biên dịch thành `var(--color-grape)` chứ không nội tuyến mã màu, nên **mọi component trong `ui/` tự đổi màu mà không sửa một dòng JSX nào**.
+Nếu thấy `data-track` ở đâu đó trong code, đó là tàn dư, xoá đi.
 
-Hệ quả cần nhớ:
+Bảng màu hiện tại hạ bão hoà so với bản đầu, dùng chung cho mọi người học. Chữ trắng trên `grape`/`sky`/`leaf`/`cherry` đạt tương phản AA; `sun` phải dùng chữ `ink`. Thêm hoặc đổi màu thì **kiểm tra lại tương phản**, đừng chọn bằng mắt.
 
-- Viết UI cho v2 vẫn dùng `bg-grape`, `text-leaf-dark`… y như v1. Đừng bịa ra `bg-grape-pro`.
-- Bọc khu v2 bằng một phần tử có `data-track="v2"`. Scope này tự sơn nền của nó, vì layout lồng nhau của App Router không gắn thuộc tính lên `<html>` được.
-- Thêm token mới thì phải thêm ở **cả hai** bảng — thiếu ở v2, component sẽ rơi về giá trị tươi của v1 và lạc lõng giữa màn hình.
+**Ant Design là ngoại lệ chép mã màu.** [src/theme/antdTheme.ts](src/theme/antdTheme.ts) buộc phải ghi mã màu thật chứ không dùng được `var(--color-*)`, vì antd tự tính cả dải màu dẫn xuất (hover, active, viền) từ mã gốc. Đổi token trong `globals.css` thì sửa luôn file đó, cùng một commit — quên là khu admin lệch màu với phần còn lại.
 
-**Hiệu ứng tương tác không phân biệt hai bảng.** `.btn-push` và toàn bộ `.anim-*` dùng chung. Nút lún khi bấm và nảy khi trả lời đúng là *phản hồi thao tác* — người lớn cũng cần biết máy đã nhận lệnh. Bỏ chúng đi để trông "nghiêm túc" là hiểu nhầm chúng thành đồ trang trí trẻ con.
+### Hiệu ứng tương tác giữ nguyên cho mọi người
+
+`.btn-push` và toàn bộ `.anim-*` không phân biệt ai đang dùng. Nút lún khi bấm và nảy khi trả lời đúng là *phản hồi thao tác* — người lớn cũng cần biết máy đã nhận lệnh. Bỏ chúng đi để trông "nghiêm túc" là hiểu nhầm chúng thành đồ trang trí trẻ con.
 
 ### Cấm
 
@@ -81,7 +81,7 @@ Chỉ dùng token của dự án. Nếu không có token nào hợp, đó là d�
 
 ## Bo góc
 
-Trẻ em thì càng tròn càng thân thiện. Bốn cấp, chọn theo kích thước khối:
+Bốn cấp, chọn theo kích thước khối:
 
 | Token | Dùng cho |
 |---|---|
@@ -98,12 +98,14 @@ Riêng huy hiệu tròn và thanh tiến độ dùng `rounded-full`.
 
 | Font | Dùng cho |
 |---|---|
-| `font-display` (Baloo) | Tiêu đề, nút, con số, nhãn ngắn |
-| `font-body` (Nunito) | Đoạn văn, mô tả dài |
+| `font-display` (Inter) | Tiêu đề, nút, con số, nhãn ngắn |
+| `font-body` (Inter) | Đoạn văn, mô tả dài |
+
+Một họ chữ duy nhất, phân cấp bằng **độ đậm** chứ không bằng hai kiểu chữ. Trước đây là Baloo 2 + Nunito cho định hướng trẻ em — đã bỏ cùng lúc với việc bỏ hai bảng màu.
 
 `h1`–`h4` đã tự nhận `font-display` + `font-weight: 800` từ base layer — không cần lặp lại class.
 
-Chữ trong app trẻ em nghiêng về đậm: `font-bold` là mặc định cho chữ thường, `font-extrabold` cho tiêu đề và nút. Con số thống kê thêm `tabular-nums` để không nhảy cột khi đổi giá trị.
+Chữ nghiêng về đậm: `font-bold` là mặc định cho chữ thường, `font-extrabold` cho tiêu đề và nút. Con số thống kê thêm `tabular-nums` để không nhảy cột khi đổi giá trị.
 
 ---
 
@@ -155,7 +157,7 @@ Khối trắng bo tròn viền dày. `TappableCard` đã gắn sẵn `role="butt
 
 ### OptionButton — [src/components/ui/OptionButton.tsx](src/components/ui/OptionButton.tsx)
 
-Một lựa chọn đáp án: huy hiệu chữ cái A/B/C/D + chữ đậm. Trẻ nhỏ đọc chữ cái dễ hơn số thứ tự.
+Một lựa chọn đáp án: huy hiệu chữ cái A/B/C/D + chữ đậm. Chữ cái nhận diện nhanh hơn số thứ tự, và khớp với phím tắt 1–4.
 
 Props: `index`, `text`, `state` (`idle` · `correct` · `wrong` · `dimmed`), `size`, `disabled`, `onClick`.
 
@@ -165,6 +167,14 @@ Props: `index`, `text`, `state` (`idle` · `correct` · `wrong` · `dimmed`), `s
 | `block` | Đáp án là câu dài — bo góc vuông hơn, cao hơn, chữ nhỏ hơn, huy hiệu căn lên đỉnh |
 
 Màu và icon của từng `state` đã khớp ngữ nghĩa màu ở trên — không override bằng className.
+
+### ChunkTile — [src/components/ui/ChunkTile.tsx](src/components/ui/ChunkTile.tsx)
+
+Một mẩu câu bấm được trong bài ghép câu. **Không dùng `OptionButton` thay thế** — hai thứ khác vai: `OptionButton` là lựa chọn loại trừ nhau (chọn A thì bỏ B), còn mẩu câu là quân bài xếp vào chuỗi, bấm lần nữa là gỡ ra.
+
+Props: `text`, `state` (`tray` · `placed` · `correct` · `wrong`), `isSlot`, `disabled`, `onClick`.
+
+`isSlot` vẽ viền nét đứt cho phần thay được của câu. Nét đứt mang nghĩa cố định trong toàn hệ thống: **chỗ này đổi được sang tình huống khác**.
 
 ### ProgressBar — [src/components/ui/ProgressBar.tsx](src/components/ui/ProgressBar.tsx)
 
@@ -194,9 +204,9 @@ Chỉ dùng `lucide-react`. Không thêm bộ icon thứ hai. Nút chỉ có ico
 
 ## Hai chữ ký hình ảnh
 
-**Nút 3D.** Class `.btn-push` tạo bóng đặc ở đáy, bấm thì nút lún xuống đúng `--push` và bóng biến mất. Mỗi biến thể tự đặt `--push-shade` bằng màu `-dark` của mình. Cảm giác "sờ được" này là thứ giữ trẻ bấm tiếp — nút phẳng làm mất nó.
+**Nút 3D.** Class `.btn-push` tạo bóng đặc ở đáy, bấm thì nút lún xuống đúng `--push` và bóng biến mất. Mỗi biến thể tự đặt `--push-shade` bằng màu `-dark` của mình. Cảm giác "sờ được" này là phản hồi cho biết máy đã nhận thao tác — nút phẳng làm mất nó.
 
-**Viền đặc thay đổ bóng mờ.** Khối trắng mặc định là `border-2 border-cloud-deep`. Viền đặc làm khối trông chắc, hợp phong cách trẻ em hơn shadow mờ.
+**Viền đặc thay đổ bóng mờ.** Khối trắng mặc định là `border-2 border-cloud-deep`. Viền đặc làm khối trông chắc và giữ được ranh giới rõ trên màn hình nhỏ, khác với shadow mờ.
 
 Ngoài ra `.dotted-bg` cho nền hoạ tiết chấm mờ — vui mắt mà không ồn.
 

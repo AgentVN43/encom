@@ -17,7 +17,6 @@ import {
   Newspaper,
   FolderTree,
   MessageSquareText,
-  Briefcase,
   LogIn,
   Sparkles,
   Users,
@@ -98,14 +97,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       path: "/settings",
       authOnly: true,
     },
-    // Lối vào khu v2. Thiếu mục này thì nội dung v2 nằm trong DB mà không ai
-    // tới được — /v2 không nằm trong nav nào và cũng không có trang nào trỏ tới.
-    {
-      label: "Tiếng Anh Công Sở",
-      icon: <Briefcase size={22} />,
-      path: "/v2",
-      authOnly: true,
-    },
     {
       label: "Theo Dõi Học Viên",
       icon: <Users size={22} />,
@@ -163,7 +154,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   if (loading) return <div className="min-h-dvh bg-cloud">{children}</div>;
 
   // Trang học chiếm trọn màn hình, không cần thanh trên
-  const isLearnPage = pathname?.startsWith("/learn/");
+  const isLearnPage =
+    pathname?.startsWith("/learn/") ||
+    pathname?.startsWith("/v2/learn/") ||
+    pathname === "/v2/review";
 
   return (
     <div className="min-h-dvh bg-cloud">
