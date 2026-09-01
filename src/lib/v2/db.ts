@@ -451,6 +451,64 @@ export async function createV2Card(input: Partial<V2Card>) {
   return data as V2Card;
 }
 
+/** Một thẻ kèm mẩu của nó, dùng cho nhập hàng loạt */
+export interface V2CardWithChunks {
+  vietnamese_text: string;
+  english_text: string;
+  context_tags: V2Context[];
+  chunks: Pick<V2Chunk, "text" | "kind">[];
+}
+
+/**
+ * Thêm nhiều thẻ kèm mẩu, chỉ hai request bất kể bao nhiêu dòng.
+ *
+ * Id sinh ở CLIENT bằng `crypto.randomUUID()` chứ không để Postgres sinh. Lý
+ * do: mẩu cần biết `card_id` trước khi ghi, mà nếu để DB sinh thì phải chèn
+ * thẻ xong đọc id trả về rồi mới ghép — và thứ tự mảng trả về của một lệnh
+ * INSERT nhiều dòng KHÔNG được đảm bảo. Ghép sai thì mẩu của câu này dính vào
+ * câu khác, một lỗi rất khó lần ra sau này. Tự sinh id thì không còn chỗ để
+ * ghép sai.
+ *
+ * Chưa dùng transaction: PostgREST không mở transaction qua nhiều request.
+ * Ghi thẻ xong mà ghi mẩu hỏng thì còn lại thẻ chưa chia mẩu — danh sách admin
+ * gắn nhãn đỏ "Chưa chia mẩu" nên nhìn ra ngay, sửa tay được. Đổi sang một RPC
+ * bọc cả hai lệnh nếu về sau thấy tình huống này xảy ra thật.
+ */
+export async function createV2CardsWithChunks(
+  topicId: string,
+  rows: V2CardWithChunks[],
+  startPosition = 0
+) {
+  if (rows.length === 0) return 0;
+
+  const cards = rows.map((r, i) => ({
+    id: crypto.randomUUID(),
+    topic_id: topicId,
+    vietnamese_text: r.vietnamese_text,
+    english_text: r.english_text,
+    context_tags: r.context_tags,
+    position: startPosition + i,
+  }));
+
+  const { error: cardError } = await supabase.from("v2_cards").insert(cards);
+  if (cardError) throw cardError;
+
+  const chunks = rows.flatMap((r, i) =>
+    r.chunks.map((c, j) => ({
+      card_id: cards[i].id,
+      text: c.text,
+      kind: c.kind,
+      position: j,
+    }))
+  );
+  if (chunks.length > 0) {
+    const { error: chunkError } = await supabase.from("v2_chunks").insert(chunks);
+    if (chunkError) throw chunkError;
+  }
+
+  return cards.length;
+}
+
 /**
  * Ghi lại toàn bộ mẩu của một thẻ.
  *

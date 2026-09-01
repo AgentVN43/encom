@@ -145,9 +145,16 @@ export function formatChunks(chunks: DraftChunk[]): string {
  *
  * Dùng làm `english_text` để không bắt admin gõ câu hai lần — gõ hai lần là
  * hai bản dễ lệch nhau, mà lệch thì bài ôn chấm một đằng hiển thị một nẻo.
+ *
+ * Phải dán lại dấu câu vào chữ đứng trước: "Can we schedule [a call]?" chia
+ * thành ba mẩu với "?" đứng riêng, nối bằng khoảng trắng sẽ ra "a call ?".
+ * Người học nhìn thấy câu này nên không được để hở.
  */
 export function chunksToSentence(chunks: DraftChunk[]): string {
-  return chunks.map((c) => c.text).join(" ");
+  return chunks
+    .map((c) => c.text)
+    .join(" ")
+    .replace(/\s+([,.!?;:])/g, "$1");
 }
 
 /**

@@ -296,6 +296,20 @@ describe("chunksToSentence", () => {
   it("không mẩu nào thì ra chuỗi rỗng", () => {
     expect(chunksToSentence([])).toBe("");
   });
+
+  it("dấu câu đứng riêng vẫn dán sát chữ trước, không hở khoảng trắng", () => {
+    // "Can we schedule [a call]?" chia thành 3 mẩu, "?" đứng một mình
+    const parsed = parseChunks("Can we schedule [a call]?");
+    expect(parsed).toHaveLength(3);
+    expect(chunksToSentence(parsed)).toBe("Can we schedule a call?");
+  });
+
+  it("dán đúng cho mọi dấu câu thường gặp", () => {
+    expect(chunksToSentence(parseChunks("Sure[,] thanks[.]"))).toBe(
+      "Sure, thanks."
+    );
+    expect(chunksToSentence(parseChunks("Great[!]"))).toBe("Great!");
+  });
 });
 
 describe("bài ghép câu đầu-cuối", () => {

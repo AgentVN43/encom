@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useAdminGuard } from "@/lib/useAdminGuard";
 import {
   createV2Card,
+  createV2CardsWithChunks,
   deleteV2Card,
   getV2Cards,
   getV2Chunks,
@@ -17,6 +18,11 @@ import {
   formatChunks,
   parseChunks,
 } from "@/lib/v2/session";
+import {
+  IMPORT_HINT,
+  IMPORT_PLACEHOLDER,
+  parseV2ImportText,
+} from "@/lib/v2/import-cards";
 import type { V2Card, V2Chunk, V2Context } from "@/lib/v2/types";
 import {
   Button,
@@ -31,7 +37,15 @@ import {
   Popconfirm,
   Empty,
 } from "antd";
-import { Plus, Edit2, Trash2, MessageSquareText } from "lucide-react";
+import {
+  Plus,
+  Edit2,
+  Trash2,
+  MessageSquareText,
+  Upload,
+  AlertCircle,
+  AlertTriangle,
+} from "lucide-react";
 import { Screen } from "@/components/ui/Layout";
 import FieldLabel from "@/components/admin/FieldLabel";
 
@@ -61,6 +75,17 @@ export default function AdminV2CardsPage() {
   const [contexts, setContexts] = useState<V2Context[]>([]);
   const [position, setPosition] = useState(0);
   const [saving, setSaving] = useState(false);
+
+  const [importOpen, setImportOpen] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [importing, setImporting] = useState(false);
+
+  /** Phân tích lại mỗi lần gõ — admin thấy lỗi ngay thay vì sau khi bấm Nhập */
+  const parsed = useMemo(() => parseV2ImportText(importText), [importText]);
+  const warned = useMemo(
+    () => parsed.valid.filter((r) => r.warning),
+    [parsed]
+  );
 
   /** Xem trước mẩu ngay khi gõ — sai ngoặc là thấy liền, không phải lưu rồi mới biết */
   const draftChunks = useMemo(
@@ -214,6 +239,42 @@ export default function AdminV2CardsPage() {
     }
   };
 
+  const handleImport = async () => {
+    if (!topicId) {
+      message.error("Chọn chủ đề trước khi nhập");
+      return;
+    }
+    if (parsed.valid.length === 0) {
+      message.error("Chưa có dòng nào hợp lệ để nhập");
+      return;
+    }
+    setImporting(true);
+    try {
+      const count = await createV2CardsWithChunks(
+        topicId,
+        parsed.valid.map((r) => ({
+          vietnamese_text: r.vietnamese_text,
+          english_text: r.english_text,
+          context_tags: r.context_tags,
+          chunks: r.chunks,
+        })),
+        // Nối tiếp sau thẻ đang có để không đụng số thứ tự của thẻ cũ
+        cards.length
+      );
+      message.success(`Đã nhập ${count} câu`);
+      setImportOpen(false);
+      setImportText("");
+      loadCards(topicId);
+    } catch (err: unknown) {
+      message.error(
+        "Lỗi nhập câu: " +
+          (err instanceof Error ? err.message : "Lỗi không xác định")
+      );
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const handleDelete = async (card: V2Card) => {
     try {
       await deleteV2Card(card.id);
@@ -251,15 +312,28 @@ export default function AdminV2CardsPage() {
           </Title>
           <Text type="secondary">Mỗi thẻ là một câu, chia sẵn thành mẩu</Text>
         </div>
-        <Button
-          type="primary"
-          icon={<Plus size={18} />}
-          onClick={openCreate}
-          disabled={!topicId}
-          className="min-h-[44px] rounded-xl"
-        >
-          Thêm
-        </Button>
+        <div className="flex shrink-0 gap-2">
+          <Button
+            icon={<Upload size={18} />}
+            onClick={() => {
+              setImportText("");
+              setImportOpen(true);
+            }}
+            disabled={!topicId}
+            className="min-h-[44px] rounded-xl"
+          >
+            Nhập
+          </Button>
+          <Button
+            type="primary"
+            icon={<Plus size={18} />}
+            onClick={openCreate}
+            disabled={!topicId}
+            className="min-h-[44px] rounded-xl"
+          >
+            Thêm
+          </Button>
+        </div>
       </div>
 
       <Select
@@ -360,6 +434,170 @@ export default function AdminV2CardsPage() {
           })}
         </div>
       )}
+
+      {/* Nhập hàng loạt */}
+      <Drawer
+        title="Nhập câu hàng loạt"
+        placement="bottom"
+        onClose={() => setImportOpen(false)}
+        open={importOpen}
+        rootClassName="bottom-sheet"
+        styles={{ wrapper: { height: "auto" } }}
+        extra={
+          <Button
+            type="primary"
+            loading={importing}
+            disabled={parsed.valid.length === 0}
+            onClick={handleImport}
+            className="rounded-xl"
+          >
+            Nhập {parsed.valid.length > 0 ? `${parsed.valid.length} câu` : ""}
+          </Button>
+        }
+      >
+        <div className="drawer-handle" />
+        <div className="mx-auto max-w-lg space-y-4">
+          <div>
+            <FieldLabel
+              label="Danh sách câu"
+              hint={
+                <>
+                  Mỗi dòng một câu, ba cột ngăn bằng dấu gạch ngang có khoảng
+                  trắng hai bên:
+                  <br />
+                  <br />
+                  câu tiếng Anh - câu tiếng Việt - ngữ cảnh
+                  <br />
+                  <br />
+                  Cột ngữ cảnh không bắt buộc, nhận cả tên tiếng Anh
+                  (meeting, email, call, chat) lẫn tiếng Việt (họp, email, gọi,
+                  nhắn tin), ngăn nhau bằng dấu phẩy.
+                  <br />
+                  <br />
+                  Câu tiếng Việt chứa dấu gạch ngang vẫn an toàn — chỉ cột cuối
+                  toàn tên ngữ cảnh hợp lệ mới bị tách ra.
+                </>
+              }
+            />
+            <Text type="secondary" className="mb-2 block text-sm">
+              {IMPORT_HINT}
+            </Text>
+            <Input.TextArea
+              value={importText}
+              onChange={(e) => setImportText(e.target.value)}
+              placeholder={IMPORT_PLACEHOLDER}
+              autoSize={{ minRows: 6, maxRows: 14 }}
+              className="rounded-xl font-mono text-sm"
+            />
+            <Text type="secondary" className="mt-1 block text-xs">
+              Nhập vào chủ đề: <strong>
+                {topics.find((t) => t.id === topicId)?.name ?? "—"}
+              </strong>
+            </Text>
+          </div>
+
+          {parsed.rows.length > 0 && (
+            <div className="space-y-2 rounded-xl bg-slate-50 p-3">
+              <Text className="block text-sm">
+                <span className="font-medium text-green-600">
+                  {parsed.valid.length} dòng hợp lệ
+                </span>
+                {parsed.invalid.length > 0 && (
+                  <span className="text-red-500">
+                    {" · "}
+                    {parsed.invalid.length} dòng lỗi
+                  </span>
+                )}
+              </Text>
+
+              {parsed.invalid.length > 0 && (
+                <div className="space-y-1">
+                  {parsed.invalid.slice(0, 5).map((r) => (
+                    <div
+                      key={r.line}
+                      className="flex items-start gap-2 text-xs text-red-600"
+                    >
+                      <AlertCircle size={14} className="mt-0.5 shrink-0" />
+                      <span>
+                        Dòng {r.line}: {r.error} — &ldquo;{r.raw}&rdquo;
+                      </span>
+                    </div>
+                  ))}
+                  {parsed.invalid.length > 5 && (
+                    <Text type="secondary" className="text-xs">
+                      ...và {parsed.invalid.length - 5} dòng lỗi khác
+                    </Text>
+                  )}
+                </div>
+              )}
+
+              {/* Cảnh báo khác lỗi: dòng vẫn nhập được, chỉ là đáng ngờ */}
+              {warned.length > 0 && (
+                <div className="space-y-1">
+                  {warned.slice(0, 5).map((r) => (
+                    <div
+                      key={r.line}
+                      className="flex items-start gap-2 text-xs text-amber-700"
+                    >
+                      <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+                      <span>
+                        Dòng {r.line}: {r.warning}
+                      </span>
+                    </div>
+                  ))}
+                  {warned.length > 5 && (
+                    <Text type="secondary" className="text-xs">
+                      ...và {warned.length - 5} dòng cần xem lại
+                    </Text>
+                  )}
+                </div>
+              )}
+
+              {parsed.valid.length > 0 && (
+                <div className="space-y-2 pt-1">
+                  <Text type="secondary" className="text-xs">
+                    Xem trước cách chia mẩu:
+                  </Text>
+                  {parsed.valid.slice(0, 3).map((r) => (
+                    <div key={r.line} className="rounded-lg bg-white p-2">
+                      <div className="flex flex-wrap gap-1">
+                        {r.chunks.map((ch, i) => (
+                          <span
+                            key={i}
+                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                              ch.kind === "slot"
+                                ? "bg-amber-100 text-amber-800"
+                                : "bg-slate-100 text-slate-700"
+                            }`}
+                          >
+                            {ch.text}
+                          </span>
+                        ))}
+                      </div>
+                      <Text type="secondary" className="mt-1 block text-xs">
+                        {r.vietnamese_text}
+                        {r.context_tags.length > 0 &&
+                          ` · ${r.context_tags
+                            .map(
+                              (t) =>
+                                CONTEXT_OPTIONS.find((o) => o.value === t)
+                                  ?.label ?? t
+                            )
+                            .join(", ")}`}
+                      </Text>
+                    </div>
+                  ))}
+                  {parsed.valid.length > 3 && (
+                    <Text type="secondary" className="text-xs">
+                      ...và {parsed.valid.length - 3} câu nữa
+                    </Text>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </Drawer>
 
       <Drawer
         title={editing ? "Sửa thẻ" : "Thêm thẻ mới"}
