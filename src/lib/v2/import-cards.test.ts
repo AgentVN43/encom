@@ -6,12 +6,10 @@ const one = (text: string) => parseV2ImportText(text).rows[0];
 
 describe("parseV2ImportText", () => {
   it("tách đủ ba cột", () => {
-    const r = one(
-      "Can we schedule [a call]? - Mình gọi nhé? - meeting, call"
-    );
+    const r = one("Can we schedule [a call]? - Mình gọi nhé? - trang trọng");
     expect(r.english_text).toBe("Can we schedule a call?");
     expect(r.vietnamese_text).toBe("Mình gọi nhé?");
-    expect(r.context_tags).toEqual(["meeting", "call"]);
+    expect(r.register).toBe("formal");
     expect(r.error).toBeUndefined();
   });
 
@@ -24,44 +22,47 @@ describe("parseV2ImportText", () => {
     ]);
   });
 
-  it("cột ngữ cảnh là không bắt buộc", () => {
+  it("thiếu cột mức thì mặc định trung tính", () => {
     const r = one("Sounds good - Nghe hợp lý");
-    expect(r.context_tags).toEqual([]);
+    expect(r.register).toBe("neutral");
     expect(r.error).toBeUndefined();
   });
 
-  it("nhận nhãn ngữ cảnh tiếng Việt", () => {
-    const r = one("Let me check - Để mình kiểm tra - họp, nhắn tin");
-    expect(r.context_tags).toEqual(["meeting", "chat"]);
+  it("nhận cả tên tiếng Anh lẫn tiếng Việt", () => {
+    expect(one("Got a sec? - Rảnh chút không? - informal").register).toBe(
+      "informal"
+    );
+    expect(one("Got a sec? - Rảnh chút không? - thân mật").register).toBe(
+      "informal"
+    );
   });
 
-  it("bỏ qua hoa thường và khoảng trắng trong cột ngữ cảnh", () => {
-    const r = one("Noted - Đã rõ -  MEETING ,  Email ");
-    expect(r.context_tags).toEqual(["meeting", "email"]);
+  it("bỏ qua hoa thường và khoảng trắng ở cột mức", () => {
+    expect(one("Noted - Đã rõ -  FORMAL ").register).toBe("formal");
   });
 
-  it("không lặp ngữ cảnh khi khai trùng", () => {
-    const r = one("Noted - Đã rõ - meeting, họp");
-    expect(r.context_tags).toEqual(["meeting"]);
+  it("nhận cả bản không dấu", () => {
+    expect(one("Noted - Đã rõ - trang trong").register).toBe("formal");
   });
 
   it("câu tiếng Việt chứa ' - ' vẫn ghép lại đủ, không bị cắt", () => {
     const r = one("Let me check - Để mình kiểm tra - rồi báo lại sau");
     expect(r.vietnamese_text).toBe("Để mình kiểm tra - rồi báo lại sau");
-    expect(r.context_tags).toEqual([]);
+    expect(r.register).toBe("neutral");
   });
 
-  it("cột cuối không phải ngữ cảnh thì thuộc về câu tiếng Việt", () => {
-    // "tuần sau" không phải tên ngữ cảnh nên phải nằm trong câu tiếng Việt
+  it("cột cuối không phải tên mức thì thuộc về câu tiếng Việt", () => {
     const r = one("Talk later - Nói sau nhé - tuần sau");
     expect(r.vietnamese_text).toBe("Nói sau nhé - tuần sau");
-    expect(r.context_tags).toEqual([]);
+    expect(r.register).toBe("neutral");
   });
 
-  it("một mục sai trong cột ngữ cảnh thì cả cột không tính là ngữ cảnh", () => {
-    const r = one("Noted - Đã rõ - meeting, linh tinh");
-    expect(r.context_tags).toEqual([]);
-    expect(r.vietnamese_text).toBe("Đã rõ - meeting, linh tinh");
+  it("dòng hai cột không bị hiểu nhầm câu tiếng Việt thành mức", () => {
+    // "trang trọng" ở đây là cả câu tiếng Việt, không phải cột mức
+    const r = one("Formally speaking - trang trọng");
+    expect(r.vietnamese_text).toBe("trang trọng");
+    expect(r.register).toBe("neutral");
+    expect(r.error).toBeUndefined();
   });
 
   it("bỏ qua dòng trống, không tính là lỗi", () => {

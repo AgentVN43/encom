@@ -1,5 +1,5 @@
 import { chunksToSentence, parseChunks, type DraftChunk } from "./session";
-import type { V2Context } from "./types";
+import type { V2Register } from "./types";
 
 /**
  * Nhập hàng loạt câu cho v2.
@@ -8,26 +8,31 @@ import type { V2Context } from "./types";
  * pháp: gạch ngang có khoảng trắng hai bên, không cắt nhầm từ ghép
  * ("T-shirt") hay link.
  *
- *   Can we schedule [a call]? - Mình sắp xếp một cuộc gọi nhé? - meeting, call
- *   └── tiếng Anh, ngoặc vuông     └── tiếng Việt              └── ngữ cảnh
+ *   Can we schedule [a call]? - Mình sắp xếp một cuộc gọi nhé? - trang trọng
+ *   └── tiếng Anh, ngoặc vuông     └── tiếng Việt              └── mức trang trọng
  *                                                                (không bắt buộc)
+ *
+ * Lĩnh vực (Work/Life/Social) KHÔNG nằm trong dòng nhập mà chọn một lần cho
+ * cả loạt ở khu admin: một lần nhập gần như luôn cùng một lĩnh vực, và tên
+ * lĩnh vực sửa được nên không kiểm tra trước được như mức trang trọng.
  */
 const SEPARATOR = /\s+-\s+/;
 
-/** Tên ngữ cảnh chấp nhận được, cả khoá tiếng Anh lẫn nhãn tiếng Việt */
-const CONTEXT_ALIASES: Record<string, V2Context> = {
-  meeting: "meeting",
-  hop: "meeting",
-  "họp": "meeting",
-  email: "email",
-  call: "call",
-  goi: "call",
-  "gọi": "call",
-  "điện thoại": "call",
-  "dien thoai": "call",
-  chat: "chat",
-  "nhắn tin": "chat",
-  "nhan tin": "chat",
+/** Mức mặc định khi dòng nhập không ghi — phần lớn câu là trung tính */
+const DEFAULT_REGISTER: V2Register = "neutral";
+
+/** Tên mức trang trọng chấp nhận được, cả tiếng Anh lẫn tiếng Việt */
+const REGISTER_ALIASES: Record<string, V2Register> = {
+  formal: "formal",
+  "trang trọng": "formal",
+  "trang trong": "formal",
+  neutral: "neutral",
+  "trung tính": "neutral",
+  "trung tinh": "neutral",
+  informal: "informal",
+  "thân mật": "informal",
+  "than mat": "informal",
+  casual: "informal",
 };
 
 export interface ParsedV2Row {
@@ -38,7 +43,7 @@ export interface ParsedV2Row {
   /** Câu hoàn chỉnh, đã bỏ ngoặc vuông */
   english_text: string;
   chunks: DraftChunk[];
-  context_tags: V2Context[];
+  register: V2Register;
   /** Dòng không dùng được, kèm lý do */
   error?: string;
   /** Dòng vẫn nhập được nhưng có chỗ đáng ngờ */
@@ -52,35 +57,23 @@ export interface ParseV2Result {
 }
 
 export const IMPORT_PLACEHOLDER =
-  "Can we schedule [a call] next week? - Mình sắp xếp một cuộc gọi tuần sau nhé? - meeting, call\n" +
-  "[Could you] send me [the deck]? - Bạn gửi mình bộ slide được không? - email";
+  "Could you possibly spare [a moment]? - Anh/chị cho em xin một phút được không? - trang trọng\n" +
+  "Can we schedule [a call] next week? - Mình sắp xếp một cuộc gọi tuần sau nhé? - trung tính\n" +
+  "Got [a sec]? - Rảnh chút không? - thân mật";
 
 export const IMPORT_HINT =
-  "Mỗi dòng một câu: câu tiếng Anh - câu tiếng Việt - ngữ cảnh (không bắt buộc). " +
-  "Đặt trong [ ] phần đổi được sang tình huống khác.";
+  "Mỗi dòng một câu: câu tiếng Anh - câu tiếng Việt - mức trang trọng " +
+  "(không bắt buộc, mặc định trung tính). Đặt trong [ ] phần đổi được.";
 
 /**
- * Cột cuối có phải danh sách ngữ cảnh không.
+ * Cột cuối có phải mức trang trọng không.
  *
  * Phải nhận diện bằng NỘI DUNG chứ không bằng vị trí: câu tiếng Việt có thể
- * chứa " - " nên số cột không cố định. Chỉ khi mọi mục trong cột cuối đều là
- * tên ngữ cảnh hợp lệ thì mới coi đó là cột ngữ cảnh — nếu không, nó là một
- * phần của câu tiếng Việt.
+ * chứa " - " nên số cột không cố định. Chỉ khi cột cuối đúng là một tên mức
+ * hợp lệ thì mới tách ra — nếu không, nó là một phần của câu tiếng Việt.
  */
-function readContexts(part: string): V2Context[] | null {
-  const items = part
-    .split(",")
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean);
-  if (items.length === 0) return null;
-
-  const tags: V2Context[] = [];
-  for (const item of items) {
-    const tag = CONTEXT_ALIASES[item];
-    if (!tag) return null;
-    if (!tags.includes(tag)) tags.push(tag);
-  }
-  return tags;
+function readRegister(part: string): V2Register | null {
+  return REGISTER_ALIASES[part.trim().toLowerCase()] ?? null;
 }
 
 function parseLine(raw: string, line: number): ParsedV2Row {
@@ -88,12 +81,14 @@ function parseLine(raw: string, line: number): ParsedV2Row {
   const englishLine = parts[0] ?? "";
   const rest = parts.slice(1);
 
-  // Thử đọc cột cuối thành ngữ cảnh; không phải thì trả lại cho câu tiếng Việt
-  let context_tags: V2Context[] = [];
+  // Thử đọc cột cuối thành mức trang trọng; không phải thì trả lại cho câu
+  // tiếng Việt. Chỉ xét khi còn ít nhất hai cột, để dòng hai cột không bị
+  // hiểu nhầm câu tiếng Việt thành mức.
+  let register: V2Register = DEFAULT_REGISTER;
   if (rest.length > 1) {
-    const maybe = readContexts(rest[rest.length - 1]);
+    const maybe = readRegister(rest[rest.length - 1]);
     if (maybe) {
-      context_tags = maybe;
+      register = maybe;
       rest.pop();
     }
   }
@@ -128,7 +123,7 @@ function parseLine(raw: string, line: number): ParsedV2Row {
     vietnamese_text,
     english_text,
     chunks,
-    context_tags,
+    register,
     error,
     warning,
   };

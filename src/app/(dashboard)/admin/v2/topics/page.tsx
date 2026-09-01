@@ -6,10 +6,8 @@ import {
   countCardsInTopic,
   createV2Topic,
   deleteV2Topic,
-  getV2Categories,
   getV2Topics,
   updateV2Topic,
-  type V2Category,
   type V2Topic,
 } from "@/lib/v2/db";
 import {
@@ -19,7 +17,6 @@ import {
   Drawer,
   Input,
   InputNumber,
-  Select,
   message,
   Spin,
   Popconfirm,
@@ -33,29 +30,24 @@ const { Title, Text } = Typography;
 /**
  * Chủ đề v2 = MỘT chức năng giao tiếp (Gợi ý, Đề nghị, Làm rõ, Theo dõi...).
  *
- * Cố tình không có trường ngữ cảnh ở đây: ngữ cảnh (họp/email/gọi/chat) gắn ở
- * từng thẻ và chọn được nhiều, vì một câu dùng lại được ở nhiều tình huống.
- * Gắn ngữ cảnh vào chủ đề là nhốt câu vào đúng một tình huống.
+ * Cố tình KHÔNG có lĩnh vực lẫn mức trang trọng ở đây — cả hai gắn ở từng
+ * câu. Lĩnh vực còn đa trị. Gắn ở cấp chủ đề là nhốt mọi câu bên trong vào
+ * một hoàn cảnh, đúng thứ mô hình ma trận sinh ra để tránh.
  */
 export default function AdminV2TopicsPage() {
   const allowed = useAdminGuard();
   const [topics, setTopics] = useState<V2Topic[]>([]);
-  const [categories, setCategories] = useState<V2Category[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filterCat, setFilterCat] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<V2Topic | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [categoryId, setCategoryId] = useState("");
   const [position, setPosition] = useState(0);
   const [saving, setSaving] = useState(false);
 
   async function loadData() {
     try {
-      const [tops, cats] = await Promise.all([getV2Topics(), getV2Categories()]);
-      setTopics(tops);
-      setCategories(cats);
+      setTopics(await getV2Topics());
     } catch (err: unknown) {
       message.error(
         "Lỗi tải dữ liệu: " +
@@ -73,13 +65,9 @@ export default function AdminV2TopicsPage() {
     let cancelled = false;
     (async () => {
       try {
-        const [tops, cats] = await Promise.all([
-          getV2Topics(),
-          getV2Categories(),
-        ]);
+        const tops = await getV2Topics();
         if (cancelled) return;
         setTopics(tops);
-        setCategories(cats);
       } catch (err: unknown) {
         if (!cancelled) {
           message.error(
@@ -96,18 +84,10 @@ export default function AdminV2TopicsPage() {
     };
   }, [allowed]);
 
-  const categoryName = (id: string | null) =>
-    categories.find((c) => c.id === id)?.name ?? "Chưa thuộc nhóm nào";
-
-  const visible = filterCat
-    ? topics.filter((t) => t.category_id === filterCat)
-    : topics;
-
   const openCreate = () => {
     setEditing(null);
     setName("");
     setDescription("");
-    setCategoryId(filterCat || categories[0]?.id || "");
     setPosition(topics.length);
     setDrawerOpen(true);
   };
@@ -116,7 +96,6 @@ export default function AdminV2TopicsPage() {
     setEditing(topic);
     setName(topic.name);
     setDescription(topic.description);
-    setCategoryId(topic.category_id ?? "");
     setPosition(topic.position);
     setDrawerOpen(true);
   };
@@ -126,16 +105,11 @@ export default function AdminV2TopicsPage() {
       message.error("Vui lòng nhập tên chủ đề");
       return;
     }
-    if (!categoryId) {
-      message.error("Vui lòng chọn nhóm");
-      return;
-    }
     setSaving(true);
     try {
       const payload = {
         name: name.trim(),
         description: description.trim(),
-        category_id: categoryId,
         position,
       };
       if (editing) {
@@ -204,22 +178,11 @@ export default function AdminV2TopicsPage() {
         </Button>
       </div>
 
-      <Select
-        value={filterCat}
-        onChange={setFilterCat}
-        size="large"
-        className="mb-4 w-full rounded-xl"
-        options={[
-          { value: "", label: "Tất cả nhóm" },
-          ...categories.map((c) => ({ value: c.id, label: c.name })),
-        ]}
-      />
-
-      {visible.length === 0 ? (
+      {topics.length === 0 ? (
         <Empty description="Chưa có chủ đề nào" />
       ) : (
         <div className="space-y-3">
-          {visible.map((topic) => (
+          {topics.map((topic) => (
             <Card key={topic.id} className="rounded-2xl border-0 shadow-sm">
               <div className="flex items-center justify-between">
                 <div className="flex min-w-0 items-center gap-3">
@@ -229,9 +192,6 @@ export default function AdminV2TopicsPage() {
                   <div className="min-w-0">
                     <Text strong className="text-base">
                       {topic.name}
-                    </Text>
-                    <Text type="secondary" className="block text-sm">
-                      {categoryName(topic.category_id)}
                     </Text>
                     {topic.description && (
                       <Text type="secondary" className="text-xs">
@@ -288,17 +248,6 @@ export default function AdminV2TopicsPage() {
       >
         <div className="drawer-handle" />
         <div className="mx-auto max-w-lg space-y-4">
-          <div>
-            <Text className="mb-1 block font-medium">Nhóm</Text>
-            <Select
-              value={categoryId || undefined}
-              onChange={setCategoryId}
-              size="large"
-              className="w-full rounded-xl"
-              placeholder="Chọn nhóm"
-              options={categories.map((c) => ({ value: c.id, label: c.name }))}
-            />
-          </div>
           <div>
             <Text className="mb-1 block font-medium">Tên chức năng</Text>
             <Input

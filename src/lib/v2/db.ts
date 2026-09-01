@@ -6,7 +6,7 @@ import {
   type V2ProgressRow,
 } from "./srs";
 import type { Grade } from "ts-fsrs";
-import type { V2Card, V2Chunk, V2Context } from "./types";
+import type { V2Card, V2Chunk, V2Register } from "./types";
 
 /**
  * Truy cập Supabase cho v2.
@@ -37,9 +37,14 @@ export interface V2Category {
   updated_at: string;
 }
 
+/**
+ * Chủ đề = MỘT chức năng giao tiếp (Đề nghị, Đồng ý, Làm rõ...).
+ *
+ * Không còn `category_id`: lĩnh vực đã chuyển xuống từng câu và thành đa trị.
+ * Giữ cả hai sẽ có hai đường phân loại chồng nhau và lúc lọc thì mâu thuẫn.
+ */
 export interface V2Topic {
   id: string;
-  category_id: string | null;
   name: string;
   description: string;
   position: number;
@@ -67,26 +72,68 @@ export async function getV2Topic(id: string) {
   return data as V2Topic | null;
 }
 
-export async function getV2Topics(categoryId?: string) {
-  let query = supabase.from("v2_topics").select("*");
-  if (categoryId) query = query.eq("category_id", categoryId);
-  const { data, error } = await query.order("position").order("name");
+export async function getV2Topics() {
+  const { data, error } = await supabase
+    .from("v2_topics")
+    .select("*")
+    .order("position")
+    .order("name");
   if (error) throw error;
   return data as V2Topic[];
 }
 
-/**
- * Câu của một chủ đề, lọc thêm theo ngữ cảnh nếu cần.
- *
- * `contains` dịch thành toán tử `@>` của Postgres và dùng được index GIN trên
- * `context_tags` — đừng thay bằng lọc ở phía client.
- */
-export async function getV2Cards(topicId: string, context?: V2Context) {
+/** Câu của một chủ đề, lọc thêm theo mức trang trọng nếu cần */
+export async function getV2Cards(topicId: string, register?: V2Register) {
   let query = supabase.from("v2_cards").select("*").eq("topic_id", topicId);
-  if (context) query = query.contains("context_tags", [context]);
+  if (register) query = query.eq("register", register);
   const { data, error } = await query.order("position");
   if (error) throw error;
   return data as V2Card[];
+}
+
+/**
+ * Lĩnh vực của từng câu, gom theo card_id.
+ *
+ * Tách khỏi `getV2Cards` chứ không nhúng sẵn: phần lớn màn hình (luồng học,
+ * bài ôn) không cần biết lĩnh vực, chỉ khu admin và bộ lọc cần. Nhúng vào mọi
+ * truy vấn là bắt cả app trả thêm một join không dùng tới.
+ */
+export async function getCardCategories(
+  cardIds: string[]
+): Promise<Record<string, string[]>> {
+  if (cardIds.length === 0) return {};
+  const { data, error } = await supabase
+    .from("v2_card_categories")
+    .select("card_id, category_id")
+    .in("card_id", cardIds);
+  if (error) throw error;
+
+  const map: Record<string, string[]> = {};
+  for (const row of data ?? []) {
+    (map[row.card_id] ??= []).push(row.category_id);
+  }
+  return map;
+}
+
+/**
+ * Đặt lại danh sách lĩnh vực của một câu.
+ *
+ * Xoá hết rồi chèn lại thay vì tính phần chênh: danh sách chỉ vài dòng, mà so
+ * khớp thêm/bớt là chỗ dễ sinh lỗi lệch trạng thái hơn nhiều so với lợi ích.
+ */
+export async function setCardCategories(cardId: string, categoryIds: string[]) {
+  const { error: delError } = await supabase
+    .from("v2_card_categories")
+    .delete()
+    .eq("card_id", cardId);
+  if (delError) throw delError;
+
+  if (categoryIds.length === 0) return;
+
+  const { error } = await supabase
+    .from("v2_card_categories")
+    .insert(categoryIds.map((id) => ({ card_id: cardId, category_id: id })));
+  if (error) throw error;
 }
 
 /**
@@ -378,20 +425,21 @@ export async function updateV2Category(id: string, updates: Partial<V2Category>)
 }
 
 /**
- * Xoá nhóm. Chủ đề bên trong KHÔNG mất theo (khoá ngoại đặt ON DELETE SET
- * NULL) — chúng thành mồ côi và biến khỏi trang chủ cho tới khi được gán nhóm
- * khác. v2 không có nhóm "Chưa phân loại" như v1, nên tầng gọi phải cảnh báo.
+ * Xoá lĩnh vực. Câu KHÔNG mất theo — chỉ các dòng trong bảng nối bị xoá
+ * (ON DELETE CASCADE trên `v2_card_categories`), nghĩa là những câu đó mất
+ * nhãn lĩnh vực này nhưng vẫn còn nguyên và vẫn học được. Đây là khác biệt
+ * quan trọng so với xoá chủ đề — xoá chủ đề thì mất cả câu.
  */
 export async function deleteV2Category(id: string) {
   const { error } = await supabase.from("v2_categories").delete().eq("id", id);
   if (error) throw error;
 }
 
-/** Số chủ đề đang nằm trong một nhóm — để cảnh báo trước khi xoá */
-export async function countTopicsInCategory(categoryId: string) {
+/** Số câu đang gắn một lĩnh vực — để cảnh báo trước khi xoá */
+export async function countCardsInCategory(categoryId: string) {
   const { count, error } = await supabase
-    .from("v2_topics")
-    .select("id", { count: "exact", head: true })
+    .from("v2_card_categories")
+    .select("card_id", { count: "exact", head: true })
     .eq("category_id", categoryId);
   if (error) throw error;
   return count ?? 0;
@@ -455,7 +503,7 @@ export async function createV2Card(input: Partial<V2Card>) {
 export interface V2CardWithChunks {
   vietnamese_text: string;
   english_text: string;
-  context_tags: V2Context[];
+  register: V2Register;
   chunks: Pick<V2Chunk, "text" | "kind">[];
 }
 
@@ -477,7 +525,9 @@ export interface V2CardWithChunks {
 export async function createV2CardsWithChunks(
   topicId: string,
   rows: V2CardWithChunks[],
-  startPosition = 0
+  startPosition = 0,
+  /** Lĩnh vực gán cho CẢ loạt — một lần nhập thường cùng một lĩnh vực */
+  categoryIds: string[] = []
 ) {
   if (rows.length === 0) return 0;
 
@@ -486,12 +536,22 @@ export async function createV2CardsWithChunks(
     topic_id: topicId,
     vietnamese_text: r.vietnamese_text,
     english_text: r.english_text,
-    context_tags: r.context_tags,
+    register: r.register,
     position: startPosition + i,
   }));
 
   const { error: cardError } = await supabase.from("v2_cards").insert(cards);
   if (cardError) throw cardError;
+
+  if (categoryIds.length > 0) {
+    const links = cards.flatMap((c) =>
+      categoryIds.map((id) => ({ card_id: c.id, category_id: id }))
+    );
+    const { error: linkError } = await supabase
+      .from("v2_card_categories")
+      .insert(links);
+    if (linkError) throw linkError;
+  }
 
   const chunks = rows.flatMap((r, i) =>
     r.chunks.map((c, j) => ({

@@ -6,11 +6,15 @@ import {
   createV2Card,
   createV2CardsWithChunks,
   deleteV2Card,
+  getCardCategories,
   getV2Cards,
+  getV2Categories,
   getV2Chunks,
   getV2Topics,
   replaceChunks,
+  setCardCategories,
   updateV2Card,
+  type V2Category,
   type V2Topic,
 } from "@/lib/v2/db";
 import {
@@ -23,7 +27,8 @@ import {
   IMPORT_PLACEHOLDER,
   parseV2ImportText,
 } from "@/lib/v2/import-cards";
-import type { V2Card, V2Chunk, V2Context } from "@/lib/v2/types";
+import { REGISTER_LABEL, REGISTER_ORDER } from "@/lib/v2/types";
+import type { V2Card, V2Chunk, V2Register } from "@/lib/v2/types";
 import {
   Button,
   Card,
@@ -51,12 +56,18 @@ import FieldLabel from "@/components/admin/FieldLabel";
 
 const { Title, Text } = Typography;
 
-const CONTEXT_OPTIONS: { value: V2Context; label: string }[] = [
-  { value: "meeting", label: "Họp" },
-  { value: "email", label: "Email" },
-  { value: "call", label: "Điện thoại" },
-  { value: "chat", label: "Nhắn tin" },
-];
+/** Giữ đúng thứ tự trang trọng → thân mật, đừng sắp xếp lại theo bảng chữ cái */
+const REGISTER_OPTIONS = REGISTER_ORDER.map((value) => ({
+  value,
+  label: REGISTER_LABEL[value],
+}));
+
+/** Màu huy hiệu theo mức — dùng chung cho danh sách và xem trước khi nhập */
+const REGISTER_CHIP: Record<V2Register, string> = {
+  formal: "bg-indigo-50 text-indigo-700",
+  neutral: "bg-slate-100 text-slate-600",
+  informal: "bg-emerald-50 text-emerald-700",
+};
 
 export default function AdminV2CardsPage() {
   const allowed = useAdminGuard();
@@ -72,12 +83,17 @@ export default function AdminV2CardsPage() {
   const [vietnamese, setVietnamese] = useState("");
   /** Dòng tiếng Anh có ngoặc vuông đánh dấu chỗ thay được */
   const [englishLine, setEnglishLine] = useState("");
-  const [contexts, setContexts] = useState<V2Context[]>([]);
+  const [register, setRegister] = useState<V2Register>("neutral");
+  const [cardCategories, setCardCategoriesState] = useState<string[]>([]);
   const [position, setPosition] = useState(0);
   const [saving, setSaving] = useState(false);
 
+  const [categories, setCategories] = useState<V2Category[]>([]);
+  const [catByCard, setCatByCard] = useState<Record<string, string[]>>({});
+
   const [importOpen, setImportOpen] = useState(false);
   const [importText, setImportText] = useState("");
+  const [importCategories, setImportCategories] = useState<string[]>([]);
   const [importing, setImporting] = useState(false);
 
   /** Phân tích lại mỗi lần gõ — admin thấy lỗi ngay thay vì sau khi bấm Nhập */
@@ -101,8 +117,12 @@ export default function AdminV2CardsPage() {
     if (!allowed) return;
     (async () => {
       try {
-        const tops = await getV2Topics();
+        const [tops, cats] = await Promise.all([
+          getV2Topics(),
+          getV2Categories().catch(() => [] as V2Category[]),
+        ]);
         setTopics(tops);
+        setCategories(cats);
         setTopicId(tops[0]?.id ?? "");
       } catch (err: unknown) {
         message.error(
@@ -128,10 +148,15 @@ export default function AdminV2CardsPage() {
 
       // Lấy mẩu của cả chủ đề trong một request — danh sách cần hiện số mẩu
       // của từng thẻ để admin biết thẻ nào chưa chia
-      const chunks = await getV2Chunks(rows.map((c) => c.id));
+      const ids = rows.map((c) => c.id);
+      const [chunks, cats] = await Promise.all([
+        getV2Chunks(ids),
+        getCardCategories(ids).catch(() => ({})),
+      ]);
       const grouped: Record<string, V2Chunk[]> = {};
       for (const ch of chunks) (grouped[ch.card_id] ??= []).push(ch);
       setChunksByCard(grouped);
+      setCatByCard(cats);
     } catch (err: unknown) {
       message.error(
         "Lỗi tải thẻ: " +
@@ -155,11 +180,16 @@ export default function AdminV2CardsPage() {
         if (cancelled) return;
         setCards(rows);
 
-        const chunks = await getV2Chunks(rows.map((c) => c.id));
+        const ids = rows.map((c) => c.id);
+        const [chunks, cats] = await Promise.all([
+          getV2Chunks(ids),
+          getCardCategories(ids).catch(() => ({})),
+        ]);
         if (cancelled) return;
         const grouped: Record<string, V2Chunk[]> = {};
         for (const ch of chunks) (grouped[ch.card_id] ??= []).push(ch);
         setChunksByCard(grouped);
+        setCatByCard(cats);
       } catch (err: unknown) {
         if (!cancelled) {
           message.error(
@@ -180,7 +210,8 @@ export default function AdminV2CardsPage() {
     setEditing(null);
     setVietnamese("");
     setEnglishLine("");
-    setContexts([]);
+    setRegister("neutral");
+    setCardCategoriesState([]);
     setPosition(cards.length);
     setDrawerOpen(true);
   };
@@ -193,7 +224,8 @@ export default function AdminV2CardsPage() {
     setEnglishLine(
       existing.length > 0 ? formatChunks(existing) : card.english_text
     );
-    setContexts(card.context_tags);
+    setRegister(card.register);
+    setCardCategoriesState(catByCard[card.id] ?? []);
     setPosition(card.position);
     setDrawerOpen(true);
   };
@@ -215,17 +247,18 @@ export default function AdminV2CardsPage() {
         // Câu hoàn chỉnh suy từ mẩu, không bắt gõ hai lần — gõ hai lần là hai
         // bản dễ lệch, mà lệch thì bài ôn chấm một đằng hiện một nẻo
         english_text: previewSentence,
-        context_tags: contexts,
+        register,
         position,
       };
 
-      // Ghi thẻ trước rồi mới ghi mẩu: mẩu cần card_id, và nếu bước hai hỏng
-      // thì thẻ vẫn còn đó để sửa lại, không mất công gõ
+      // Ghi thẻ trước rồi mới ghi mẩu và lĩnh vực: cả hai đều cần card_id, và
+      // nếu bước sau hỏng thì thẻ vẫn còn đó để sửa lại, không mất công gõ
       const cardId = editing
         ? (await updateV2Card(editing.id, payload), editing.id)
         : (await createV2Card(payload)).id;
 
       await replaceChunks(cardId, draftChunks);
+      await setCardCategories(cardId, cardCategories);
 
       message.success(editing ? "Đã cập nhật thẻ" : "Đã tạo thẻ mới");
       setDrawerOpen(false);
@@ -255,11 +288,12 @@ export default function AdminV2CardsPage() {
         parsed.valid.map((r) => ({
           vietnamese_text: r.vietnamese_text,
           english_text: r.english_text,
-          context_tags: r.context_tags,
+          register: r.register,
           chunks: r.chunks,
         })),
         // Nối tiếp sau thẻ đang có để không đụng số thứ tự của thẻ cũ
-        cards.length
+        cards.length,
+        importCategories
       );
       message.success(`Đã nhập ${count} câu`);
       setImportOpen(false);
@@ -391,19 +425,26 @@ export default function AdminV2CardsPage() {
                         )}
                       </div>
 
-                      {card.context_tags.length > 0 && (
-                        <div className="mt-1.5 flex flex-wrap gap-1.5">
-                          {card.context_tags.map((tag) => (
-                            <span
-                              key={tag}
-                              className="rounded-full bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700"
-                            >
-                              {CONTEXT_OPTIONS.find((o) => o.value === tag)
-                                ?.label ?? tag}
-                            </span>
-                          ))}
-                        </div>
-                      )}
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${REGISTER_CHIP[card.register]}`}
+                        >
+                          {REGISTER_LABEL[card.register]}
+                        </span>
+                        {(catByCard[card.id] ?? []).map((id) => (
+                          <span
+                            key={id}
+                            className="rounded-full bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700"
+                          >
+                            {categories.find((c) => c.id === id)?.name ?? "?"}
+                          </span>
+                        ))}
+                        {(catByCard[card.id] ?? []).length === 0 && (
+                          <span className="text-xs text-amber-700">
+                            Chưa gắn lĩnh vực
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="flex shrink-0 gap-1">
@@ -496,6 +537,22 @@ export default function AdminV2CardsPage() {
             </Text>
           </div>
 
+          <div>
+            <FieldLabel
+              label="Lĩnh vực cho cả loạt"
+              hint="Gán cho MỌI câu trong lần nhập này. Lĩnh vực không nằm trong dòng nhập vì một loạt gần như luôn cùng lĩnh vực; câu nào khác thì sửa lại sau trong danh sách."
+            />
+            <Select
+              mode="multiple"
+              value={importCategories}
+              onChange={setImportCategories}
+              size="large"
+              className="w-full rounded-xl"
+              placeholder="Chọn một hoặc nhiều"
+              options={categories.map((c) => ({ value: c.id, label: c.name }))}
+            />
+          </div>
+
           {parsed.rows.length > 0 && (
             <div className="space-y-2 rounded-xl bg-slate-50 p-3">
               <Text className="block text-sm">
@@ -575,15 +632,7 @@ export default function AdminV2CardsPage() {
                         ))}
                       </div>
                       <Text type="secondary" className="mt-1 block text-xs">
-                        {r.vietnamese_text}
-                        {r.context_tags.length > 0 &&
-                          ` · ${r.context_tags
-                            .map(
-                              (t) =>
-                                CONTEXT_OPTIONS.find((o) => o.value === t)
-                                  ?.label ?? t
-                            )
-                            .join(", ")}`}
+                        {r.vietnamese_text} · {REGISTER_LABEL[r.register]}
                       </Text>
                     </div>
                   ))}
@@ -695,17 +744,31 @@ export default function AdminV2CardsPage() {
 
           <div>
             <FieldLabel
-              label="Ngữ cảnh dùng được"
-              hint="Chọn được NHIỀU. Một câu thường dùng lại được ở nhiều tình huống — gắn đủ thì người học mới nhận ra điều đó thay vì tưởng câu chỉ hợp một chỗ."
+              label="Mức trang trọng"
+              hint="Chọn MỘT. Đây là thứ quyết định câu dùng được với ai — nói 'Got a sec?' với giám đốc là lỗi điển hình. Cùng một chức năng nên soạn đủ ba mức để người học thấy cả thang."
+            />
+            <Select
+              value={register}
+              onChange={setRegister}
+              size="large"
+              className="w-full rounded-xl"
+              options={REGISTER_OPTIONS}
+            />
+          </div>
+
+          <div>
+            <FieldLabel
+              label="Lĩnh vực"
+              hint="Chọn được NHIỀU. Một câu như 'Can we schedule a call?' vừa dùng ở Work vừa dùng ở Social — gắn đủ thì người học mới nhận ra nó dùng lại được, thay vì tưởng chỉ hợp một hoàn cảnh."
             />
             <Select
               mode="multiple"
-              value={contexts}
-              onChange={setContexts}
+              value={cardCategories}
+              onChange={setCardCategoriesState}
               size="large"
               className="w-full rounded-xl"
               placeholder="Chọn một hoặc nhiều"
-              options={CONTEXT_OPTIONS}
+              options={categories.map((c) => ({ value: c.id, label: c.name }))}
             />
           </div>
 

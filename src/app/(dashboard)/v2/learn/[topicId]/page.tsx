@@ -10,7 +10,8 @@ import {
   markUnderstood,
   type V2Topic,
 } from "@/lib/v2/db";
-import type { V2Card, V2Chunk, V2Context } from "@/lib/v2/types";
+import { REGISTER_LABEL } from "@/lib/v2/types";
+import type { V2Card, V2Chunk } from "@/lib/v2/types";
 import { Screen, Loader, EmptyState } from "@/components/ui/Layout";
 import Button from "@/components/ui/Button";
 import IconButton from "@/components/ui/IconButton";
@@ -21,13 +22,6 @@ import { cancelSpeech, speakText } from "@/lib/utils";
 
 /** Số câu mới mỗi lượt — học dồn quá nhiều thì ôn tập hôm sau vỡ trận */
 const NEW_CARDS_PER_ROUND = 8;
-
-const CONTEXT_LABEL: Record<V2Context, string> = {
-  meeting: "Họp",
-  email: "Email",
-  call: "Điện thoại",
-  chat: "Nhắn tin",
-};
 
 export default function V2LearnPage() {
   const { topicId } = useParams<{ topicId: string }>();
@@ -268,18 +262,13 @@ export default function V2LearnPage() {
                 </div>
               )}
 
-              {current.context_tags.length > 0 && (
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {current.context_tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="rounded-pill bg-sky-soft px-3 py-1 text-sm font-bold text-sky-dark"
-                    >
-                      {CONTEXT_LABEL[tag] ?? tag}
-                    </span>
-                  ))}
-                </div>
-              )}
+              {/* Mức trang trọng là thứ quyết định câu dùng được với ai —
+                  chỗ người học sai nhiều nhất, nên hiện thẳng chứ không giấu */}
+              <div className="mt-4">
+                <span className="rounded-pill bg-sky-soft px-3 py-1 text-sm font-bold text-sky-dark">
+                  {REGISTER_LABEL[current.register]}
+                </span>
+              </div>
             </div>
           )}
         </Card>

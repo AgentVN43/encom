@@ -7,9 +7,7 @@ import { getCategories, getTopics, getCards, getProgress } from "@/lib/db";
 import {
   getDueCards,
   getV2CardCounts,
-  getV2Categories,
   getV2Topics,
-  type V2Category,
   type V2Topic,
 } from "@/lib/v2/db";
 import type { Category, Topic, Card as CardType } from "@/lib/types";
@@ -38,11 +36,6 @@ interface CategoryGroup {
   topics: Topic[];
 }
 
-interface V2Group {
-  category: V2Category | null;
-  topics: V2Topic[];
-}
-
 /** Đếm dư một khoảng là đủ để hiện "50+", không cần con số chính xác */
 const DUE_COUNT_CAP = 50;
 
@@ -65,7 +58,7 @@ export default function HomePage() {
     Record<string, { total: number; mastered: number }>
   >({});
 
-  const [v2Groups, setV2Groups] = useState<V2Group[]>([]);
+  const [v2Topics, setV2Topics] = useState<V2Topic[]>([]);
   const [v2Counts, setV2Counts] = useState<Record<string, number>>({});
   const [dueCount, setDueCount] = useState(0);
 
@@ -134,8 +127,7 @@ export default function HomePage() {
       })().catch(() => {});
 
       const v2 = (async () => {
-        const [cats, tops, counts, due] = await Promise.all([
-          getV2Categories(),
+        const [tops, counts, due] = await Promise.all([
           getV2Topics(),
           getV2CardCounts(),
           session
@@ -144,20 +136,11 @@ export default function HomePage() {
         ]);
         if (cancelled) return;
 
-        const grouped: V2Group[] = cats
-          .map((cat) => ({
-            category: cat as V2Category | null,
-            topics: tops.filter((t) => t.category_id === cat.id),
-          }))
-          .filter((g) => g.topics.length > 0);
-        // Chủ đề mồ côi: v2 không có nhóm "Chưa phân loại", xoá nhóm thì khoá
-        // ngoại thành NULL. Không gom lại thì chúng biến mất mà chẳng ai biết.
-        const orphans = tops.filter(
-          (t) => !cats.some((c) => c.id === t.category_id)
-        );
-        if (orphans.length > 0) grouped.push({ category: null, topics: orphans });
-
-        setV2Groups(grouped);
+        // Liệt kê phẳng theo chức năng, không nhóm theo lĩnh vực nữa: lĩnh vực
+        // giờ nằm ở TỪNG CÂU và đa trị, nên một chủ đề có thể chứa câu thuộc
+        // cả Work lẫn Life — xếp nó vào một nhóm là nói sai. Bộ lọc theo lĩnh
+        // vực sẽ thay chỗ này khi thư viện đủ câu để lọc có nghĩa.
+        setV2Topics(tops);
         setV2Counts(counts);
         setDueCount(due.length);
       })().catch(() => {});
@@ -201,8 +184,7 @@ export default function HomePage() {
     { total: 0, mastered: 0 }
   );
 
-  const v2TopicCount = v2Groups.reduce((n, g) => n + g.topics.length, 0);
-  const nothingAtAll = topicCount === 0 && v2TopicCount === 0;
+  const nothingAtAll = topicCount === 0 && v2Topics.length === 0;
 
   return (
     <Screen width="wide" className="py-4">
@@ -317,37 +299,28 @@ export default function HomePage() {
             </TrackSection>
           )}
 
-          {/* Học theo câu */}
-          {v2TopicCount > 0 && (
+          {/* Học theo câu — liệt kê phẳng theo chức năng giao tiếp */}
+          {v2Topics.length > 0 && (
             <TrackSection
               icon={<MessagesSquare size={20} strokeWidth={2.5} />}
               title="Học theo câu"
               hint="Ghép cụm thành câu hoàn chỉnh, có lịch ôn giãn cách"
             >
-              {v2Groups.map((group) => (
-                <GroupBlock
-                  key={group.category?.id || "khac"}
-                  name={group.category?.name || "Chưa thuộc nhóm nào"}
-                  description={group.category?.description}
-                  count={group.topics.length}
-                >
-                  {group.topics.map((topic) => {
-                    const total = v2Counts[topic.id] ?? 0;
-                    return (
-                      <TopicCard
-                        key={topic.id}
-                        name={topic.name}
-                        done={false}
-                        icon={<MessagesSquare size={22} strokeWidth={2.5} />}
-                        subtitle={
-                          total === 0 ? "Chưa có câu nào" : `${total} câu`
-                        }
-                        onClick={() => open(`/v2/learn/${topic.id}`)}
-                      />
-                    );
-                  })}
-                </GroupBlock>
-              ))}
+              <div className="space-y-3 lg:grid lg:grid-cols-3 lg:gap-4 lg:space-y-0">
+                {v2Topics.map((topic) => {
+                  const total = v2Counts[topic.id] ?? 0;
+                  return (
+                    <TopicCard
+                      key={topic.id}
+                      name={topic.name}
+                      done={false}
+                      icon={<MessagesSquare size={22} strokeWidth={2.5} />}
+                      subtitle={total === 0 ? "Chưa có câu nào" : `${total} câu`}
+                      onClick={() => open(`/v2/learn/${topic.id}`)}
+                    />
+                  );
+                })}
+              </div>
             </TrackSection>
           )}
         </div>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAdminGuard } from "@/lib/useAdminGuard";
 import {
-  countTopicsInCategory,
+  countCardsInCategory,
   createV2Category,
   deleteV2Category,
   getV2Categories,
@@ -28,11 +28,14 @@ import { Screen } from "@/components/ui/Layout";
 const { Title, Text } = Typography;
 
 /**
- * Nhóm chức năng giao tiếp của v2 ("Họp & Thuyết trình", "Email & Nhắn tin").
+ * Lĩnh vực sống của v2 — mặc định Work / Life / Social.
  *
- * Khác nhóm của v1: không có ngôn ngữ (v2 chỉ tiếng Anh) và không có nhóm
- * "Chưa phân loại" — xoá nhóm thì chủ đề bên trong thành mồ côi chứ không tự
- * chuyển đi đâu, nên phải cảnh báo trước khi xoá.
+ * Gắn ở TỪNG CÂU và ĐA TRỊ (qua bảng nối), không gắn ở chủ đề: "Can we
+ * schedule a call?" vừa là Work vừa là Social, bắt chọn một là nhốt câu vào
+ * một hoàn cảnh và mất khả năng dùng lại.
+ *
+ * Vẫn để sửa được thay vì cố định ba giá trị, vì codebase còn dùng cho ngôn
+ * ngữ và lĩnh vực chuyên sâu khác — mỗi triển khai đặt bộ lĩnh vực riêng.
  */
 export default function AdminV2CategoriesPage() {
   const allowed = useAdminGuard();
@@ -87,7 +90,7 @@ export default function AdminV2CategoriesPage() {
     setEditing(null);
     setName("");
     setDescription("");
-    // Đặt cuối danh sách — nhóm mới thường là nhóm bổ sung
+    // Đặt cuối danh sách — lĩnh vực mới thường là bổ sung
     setPosition(items.length);
     setDrawerOpen(true);
   };
@@ -102,7 +105,7 @@ export default function AdminV2CategoriesPage() {
 
   const handleSave = async () => {
     if (!name.trim()) {
-      message.error("Vui lòng nhập tên nhóm");
+      message.error("Vui lòng nhập tên lĩnh vực");
       return;
     }
     setSaving(true);
@@ -114,10 +117,10 @@ export default function AdminV2CategoriesPage() {
       };
       if (editing) {
         await updateV2Category(editing.id, payload);
-        message.success("Đã cập nhật nhóm");
+        message.success("Đã cập nhật lĩnh vực");
       } else {
         await createV2Category(payload);
-        message.success("Đã tạo nhóm mới");
+        message.success("Đã tạo lĩnh vực mới");
       }
       setDrawerOpen(false);
       loadData();
@@ -132,15 +135,15 @@ export default function AdminV2CategoriesPage() {
 
   const handleDelete = async (item: V2Category) => {
     try {
-      const count = await countTopicsInCategory(item.id);
-      if (count > 0) {
-        message.error(
-          `Còn ${count} chủ đề trong nhóm này — chuyển chúng sang nhóm khác trước khi xoá`
-        );
-        return;
-      }
+      // Cảnh báo chứ không chặn: xoá lĩnh vực KHÔNG mất câu, chỉ mất nhãn.
+      // Khác hẳn xoá chủ đề — cái đó mất cả câu lẫn tiến độ học viên.
+      const count = await countCardsInCategory(item.id);
       await deleteV2Category(item.id);
-      message.success("Đã xoá nhóm");
+      message.success(
+        count > 0
+          ? `Đã xoá lĩnh vực — ${count} câu mất nhãn này nhưng vẫn học được`
+          : "Đã xoá lĩnh vực"
+      );
       loadData();
     } catch (err: unknown) {
       message.error(
@@ -162,10 +165,10 @@ export default function AdminV2CategoriesPage() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <Title level={4} className="mb-1">
-            Nhóm chức năng (v2)
+            Lĩnh vực (v2)
           </Title>
           <Text type="secondary">
-            Miền giao tiếp lớn, chứa các chức năng cụ thể bên trong
+            Work / Life / Social — gắn ở từng câu, một câu chọn được nhiều
           </Text>
         </div>
         <Button
@@ -179,7 +182,7 @@ export default function AdminV2CategoriesPage() {
       </div>
 
       {items.length === 0 ? (
-        <Empty description="Chưa có nhóm nào" />
+        <Empty description="Chưa có lĩnh vực nào" />
       ) : (
         <div className="space-y-3">
           {items.map((item) => (
@@ -208,8 +211,8 @@ export default function AdminV2CategoriesPage() {
                     className="min-h-[44px] min-w-[44px]"
                   />
                   <Popconfirm
-                    title="Xoá nhóm này?"
-                    description="Chỉ xoá được khi bên trong không còn chủ đề nào"
+                    title="Xoá lĩnh vực này?"
+                    description="Câu vẫn còn nguyên, chỉ mất nhãn lĩnh vực này"
                     onConfirm={() => handleDelete(item)}
                     okText="Xoá"
                     cancelText="Huỷ"
@@ -229,7 +232,7 @@ export default function AdminV2CategoriesPage() {
       )}
 
       <Drawer
-        title={editing ? "Sửa nhóm" : "Thêm nhóm mới"}
+        title={editing ? "Sửa lĩnh vực" : "Thêm lĩnh vực mới"}
         placement="bottom"
         onClose={() => setDrawerOpen(false)}
         open={drawerOpen}
@@ -249,11 +252,11 @@ export default function AdminV2CategoriesPage() {
         <div className="drawer-handle" />
         <div className="mx-auto max-w-lg space-y-4">
           <div>
-            <Text className="mb-1 block font-medium">Tên nhóm</Text>
+            <Text className="mb-1 block font-medium">Tên lĩnh vực</Text>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="VD: Họp & Thuyết trình, Email & Nhắn tin công việc..."
+              placeholder="VD: Work, Life, Social"
               size="large"
               className="rounded-xl"
             />
