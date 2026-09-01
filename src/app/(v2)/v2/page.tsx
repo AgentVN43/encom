@@ -13,7 +13,7 @@ import {
 import { Screen, Loader, EmptyState } from "@/components/ui/Layout";
 import Button from "@/components/ui/Button";
 import Card, { TappableCard } from "@/components/ui/Card";
-import { CalendarClock, ChevronRight } from "lucide-react";
+import { ArrowLeft, CalendarClock, ChevronRight } from "lucide-react";
 
 /** Lấy dư một khoảng để đếm — chỉ cần biết "nhiều hơn 50" là đủ để hiển thị */
 const DUE_COUNT_CAP = 50;
@@ -63,6 +63,11 @@ export default function V2HomePage() {
     };
   }, [router]);
 
+  /** Chủ đề không thuộc nhóm nào còn tồn tại — vẫn phải hiện, xem chú thích dưới */
+  const orphans = topics.filter(
+    (t) => !categories.some((c) => c.id === t.category_id)
+  );
+
   if (loading) return <Loader label="Đang tải nội dung..." />;
 
   if (error) {
@@ -97,6 +102,17 @@ export default function V2HomePage() {
   return (
     <div className="dotted-bg min-h-dvh pb-12">
       <Screen width="wide" className="py-6">
+        {/* Khu v2 có layout riêng, không dùng AppShell — thiếu liên kết này thì
+            vào rồi chỉ còn nút back của trình duyệt để thoát */}
+        <button
+          type="button"
+          onClick={() => router.push("/home")}
+          className="mb-3 inline-flex min-h-12 items-center gap-2 font-display text-sm font-bold text-ink-soft"
+        >
+          <ArrowLeft size={16} strokeWidth={2.5} />
+          Về trang chính
+        </button>
+
         <h1 className="text-2xl text-ink">Tiếng Anh công sở</h1>
         <p className="mt-1 text-ink-soft">
           Chọn một chức năng giao tiếp để học, hoặc ôn lại những câu đã đến hạn.
@@ -151,6 +167,24 @@ export default function V2HomePage() {
               </section>
             );
           })}
+
+          {/* Chủ đề mồ côi: nhóm bị xoá thì khoá ngoại thành NULL (v2 không có
+              nhóm "Chưa phân loại" như v1). Không có khối này thì chúng biến
+              mất khỏi trang mà chẳng ai biết, vì vòng lặp trên chỉ duyệt nhóm. */}
+          {orphans.length > 0 && (
+            <section>
+              <h2 className="text-lg text-ink">Chưa thuộc nhóm nào</h2>
+              <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                {orphans.map((topic) => (
+                  <TopicRow
+                    key={topic.id}
+                    topic={topic}
+                    onOpen={() => router.push(`/v2/learn/${topic.id}`)}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
         </div>
       </Screen>
     </div>

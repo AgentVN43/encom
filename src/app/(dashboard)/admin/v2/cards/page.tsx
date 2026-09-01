@@ -33,6 +33,7 @@ import {
 } from "antd";
 import { Plus, Edit2, Trash2, MessageSquareText } from "lucide-react";
 import { Screen } from "@/components/ui/Layout";
+import FieldLabel from "@/components/admin/FieldLabel";
 
 const { Title, Text } = Typography;
 
@@ -381,7 +382,10 @@ export default function AdminV2CardsPage() {
         <div className="drawer-handle" />
         <div className="mx-auto max-w-lg space-y-4">
           <div>
-            <Text className="mb-1 block font-medium">Câu tiếng Việt</Text>
+            <FieldLabel
+              label="Câu tiếng Việt"
+              hint="Mặt trước thẻ. Người học đọc câu này rồi tự nghĩ ra câu tiếng Anh trước khi lật."
+            />
             <Input.TextArea
               value={vietnamese}
               onChange={(e) => setVietnamese(e.target.value)}
@@ -390,16 +394,25 @@ export default function AdminV2CardsPage() {
               size="large"
               className="rounded-xl"
             />
-            <Text type="secondary" className="mt-1 block text-xs">
-              Đây là mặt trước thẻ. Người học đọc câu này rồi tự nghĩ ra câu
-              tiếng Anh.
-            </Text>
           </div>
 
           <div>
-            <Text className="mb-1 block font-medium">
-              Câu tiếng Anh, chia mẩu bằng ngoặc vuông
-            </Text>
+            <FieldLabel
+              label="Câu tiếng Anh"
+              hint={
+                <>
+                  Đặt trong ngoặc vuông phần ĐỔI ĐƯỢC sang tình huống khác,
+                  phần ngoài ngoặc là khung cố định.
+                  <br />
+                  <br />
+                  Ví dụ: Can we schedule [a call] next week?
+                  <br />
+                  <br />
+                  Người học sẽ phải ghép lại đúng thứ tự các mẩu này, nên chia
+                  càng sát nghĩa càng tốt.
+                </>
+              }
+            />
             <Input.TextArea
               value={englishLine}
               onChange={(e) => setEnglishLine(e.target.value)}
@@ -408,11 +421,6 @@ export default function AdminV2CardsPage() {
               size="large"
               className="rounded-xl font-mono"
             />
-            <Text type="secondary" className="mt-1 block text-xs">
-              Đặt trong <code>[ ]</code> phần ĐỔI ĐƯỢC sang tình huống khác.
-              Phần ngoài ngoặc là khung cố định. Người học sẽ phải ghép lại
-              đúng thứ tự các mẩu này.
-            </Text>
           </div>
 
           {/* Xem trước: sai ngoặc là thấy ngay, không phải lưu rồi mở lại mới biết */}
@@ -448,7 +456,10 @@ export default function AdminV2CardsPage() {
           )}
 
           <div>
-            <Text className="mb-1 block font-medium">Ngữ cảnh dùng được</Text>
+            <FieldLabel
+              label="Ngữ cảnh dùng được"
+              hint="Chọn được NHIỀU. Một câu thường dùng lại được ở nhiều tình huống — gắn đủ thì người học mới nhận ra điều đó thay vì tưởng câu chỉ hợp một chỗ."
+            />
             <Select
               mode="multiple"
               value={contexts}
@@ -458,13 +469,13 @@ export default function AdminV2CardsPage() {
               placeholder="Chọn một hoặc nhiều"
               options={CONTEXT_OPTIONS}
             />
-            <Text type="secondary" className="mt-1 block text-xs">
-              Chọn được NHIỀU — một câu thường dùng lại được ở nhiều tình huống.
-            </Text>
           </div>
 
           <div>
-            <Text className="mb-1 block font-medium">Thứ tự hiển thị</Text>
+            <FieldLabel
+              label="Thứ tự hiển thị"
+              hint="Số nhỏ hiện trước trong danh sách thẻ của chủ đề."
+            />
             <InputNumber
               value={position}
               onChange={(v) => setPosition(v ?? 0)}
