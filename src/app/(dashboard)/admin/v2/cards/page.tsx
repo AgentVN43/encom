@@ -29,6 +29,7 @@ import {
 import {
   IMPORT_HINT,
   IMPORT_PLACEHOLDER,
+  parseFillerBlock,
   parseV2ImportText,
 } from "@/lib/v2/import-cards";
 import { REGISTER_LABEL, REGISTER_ORDER } from "@/lib/v2/types";
@@ -847,6 +848,8 @@ export default function AdminV2CardsPage() {
                   <FillerEditor
                     key={slotIndex}
                     slotText={slot.text}
+                    slotNumber={slotIndex + 1}
+                    totalSlots={draftSlots.length}
                     rows={fillers[slotIndex] ?? []}
                     onChange={(next) =>
                       setFillers((prev) => {
@@ -921,15 +924,32 @@ export default function AdminV2CardsPage() {
  */
 function FillerEditor({
   slotText,
+  slotNumber,
+  totalSlots,
   rows,
   onChange,
 }: {
   slotText: string;
+  slotNumber: number;
+  totalSlots: number;
   rows: DraftFiller[];
   onChange: (next: DraftFiller[]) => void;
 }) {
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [pasteText, setPasteText] = useState("");
+
   const update = (i: number, patch: Partial<DraftFiller>) =>
     onChange(rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+
+  const parsed = parseFillerBlock(pasteText, slotNumber);
+
+  const applyPaste = () => {
+    if (parsed.fillers.length === 0) return;
+    // Nối vào chứ không thay thế: ô này thường đã có cụm gốc, dán đè là mất
+    onChange([...rows, ...parsed.fillers]);
+    setPasteText("");
+    setPasteOpen(false);
+  };
 
   return (
     <div className="rounded-xl border border-slate-200 p-3">
@@ -991,7 +1011,61 @@ function FillerEditor({
             + Cụm gốc
           </Button>
         )}
+        <Button
+          type="dashed"
+          onClick={() => setPasteOpen((v) => !v)}
+          className="rounded-lg"
+        >
+          Dán
+        </Button>
       </div>
+
+      {pasteOpen && (
+        <div className="mt-2 rounded-lg bg-slate-50 p-2">
+          <Input.TextArea
+            value={pasteText}
+            onChange={(e) => setPasteText(e.target.value)}
+            placeholder={
+              totalSlots > 1
+                ? `+${slotNumber} a quick chat = một buổi trao đổi nhanh`
+                : "a quick chat = một buổi trao đổi nhanh"
+            }
+            autoSize={{ minRows: 3, maxRows: 8 }}
+            className="rounded-lg font-mono text-sm"
+          />
+          <Text type="secondary" className="mt-1 block text-xs">
+            Mỗi dòng một cụm: <code>tiếng Anh = nghĩa tiếng Việt</code>. Dán
+            thẳng kết quả AI được — dấu <code>+</code> đầu dòng tự bỏ.
+          </Text>
+
+          {parsed.errors.length > 0 && (
+            <div className="mt-2 space-y-1">
+              {parsed.errors.slice(0, 4).map((e) => (
+                <div
+                  key={e.line}
+                  className="flex items-start gap-2 text-xs text-red-600"
+                >
+                  <AlertCircle size={13} className="mt-0.5 shrink-0" />
+                  <span>
+                    Dòng {e.line}: {e.error}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <Button
+            type="primary"
+            disabled={parsed.fillers.length === 0}
+            onClick={applyPaste}
+            className="mt-2 w-full rounded-lg"
+          >
+            {parsed.fillers.length > 0
+              ? `Thêm ${parsed.fillers.length} cụm`
+              : "Thêm"}
+          </Button>
+        </div>
+      )}
 
       {rows.length === 1 && (
         <Text type="warning" className="mt-1 block text-xs">
