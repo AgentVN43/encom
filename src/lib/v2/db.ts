@@ -214,6 +214,65 @@ export async function getSubstitutionFillers(slotChunkIds: string[]) {
   return data as V2SubstitutionFiller[];
 }
 
+/**
+ * Thẻ theo danh sách id.
+ *
+ * Khác `getV2Cards` (lấy cả một chủ đề): bài Rèn luyện chỉ cần đúng những thẻ
+ * đã có cụm thay thế, rải rác khắp các chủ đề.
+ */
+export async function getV2CardsByIds(ids: string[]) {
+  if (ids.length === 0) return [];
+  const { data, error } = await supabase
+    .from("v2_cards")
+    .select("*")
+    .in("id", ids);
+  if (error) throw error;
+  return data as V2Card[];
+}
+
+/** Một mẩu `slot` đã có cụm thay thế — đơn vị ra đề của bài Rèn luyện */
+export interface DrillSlot {
+  slot_chunk_id: string;
+  card_id: string;
+  fillers: V2SubstitutionFiller[];
+}
+
+/**
+ * Các mẩu `slot` đã có đủ cụm thay thế để ra đề.
+ *
+ * Đi từ bảng filler ngược lên chứ không duyệt từ thẻ xuống: phần lớn câu chưa
+ * có cụm nào, quét từ thẻ là tải cả thư viện về rồi vứt gần hết.
+ *
+ * Lọc bỏ slot có dưới hai cụm ngay tại đây: một cụm thì không có gì để chọn,
+ * mà để lọt ra màn hình mới loại thì đề bài đã dựng dở dang rồi.
+ */
+export async function getDrillSlots(): Promise<DrillSlot[]> {
+  const { data, error } = await supabase
+    .from("v2_substitution_fillers")
+    .select("*, v2_chunks!inner(id, card_id)")
+    .order("position");
+  if (error) throw error;
+
+  const rows = (data ?? []) as unknown as (V2SubstitutionFiller & {
+    v2_chunks: { id: string; card_id: string };
+  })[];
+
+  const bySlot = new Map<string, DrillSlot>();
+  for (const row of rows) {
+    // Cụm chưa dịch thì không nêu được tình huống, bỏ qua
+    if (!row.filler_vi.trim()) continue;
+    const slot = bySlot.get(row.slot_chunk_id) ?? {
+      slot_chunk_id: row.slot_chunk_id,
+      card_id: row.v2_chunks.card_id,
+      fillers: [],
+    };
+    slot.fillers.push(row);
+    bySlot.set(row.slot_chunk_id, slot);
+  }
+
+  return [...bySlot.values()].filter((s) => s.fillers.length >= 2);
+}
+
 export interface V2AdjacencyPair {
   id: string;
   target_card_id: string;

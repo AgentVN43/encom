@@ -157,7 +157,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const isLearnPage =
     pathname?.startsWith("/learn/") ||
     pathname?.startsWith("/v2/learn/") ||
-    pathname === "/v2/review";
+    pathname === "/v2/review" ||
+    pathname === "/v2/practice";
 
   return (
     <div className="min-h-dvh bg-cloud">

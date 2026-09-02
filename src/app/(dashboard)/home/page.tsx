@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { getCategories, getTopics, getCards, getProgress } from "@/lib/db";
 import {
+  getDrillSlots,
   getDueCards,
   getV2CardCounts,
   getV2Topics,
@@ -18,6 +19,7 @@ import {
   Check,
   ChevronRight,
   MessagesSquare,
+  Repeat2,
   Sparkles,
 } from "lucide-react";
 import { Screen, EmptyState, Skeleton } from "@/components/ui/Layout";
@@ -61,6 +63,7 @@ export default function HomePage() {
   const [v2Topics, setV2Topics] = useState<V2Topic[]>([]);
   const [v2Counts, setV2Counts] = useState<Record<string, number>>({});
   const [dueCount, setDueCount] = useState(0);
+  const [drillCount, setDrillCount] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -127,12 +130,14 @@ export default function HomePage() {
       })().catch(() => {});
 
       const v2 = (async () => {
-        const [tops, counts, due] = await Promise.all([
+        const [tops, counts, due, drills] = await Promise.all([
           getV2Topics(),
           getV2CardCounts(),
           session
             ? getDueCards(session.user.id, DUE_COUNT_CAP).catch(() => [])
             : Promise.resolve([]),
+          // Chưa chạy migration filler thì phần này rỗng, không kéo sập trang
+          getDrillSlots().catch(() => []),
         ]);
         if (cancelled) return;
 
@@ -143,6 +148,7 @@ export default function HomePage() {
         setV2Topics(tops);
         setV2Counts(counts);
         setDueCount(due.length);
+        setDrillCount(drills.length);
       })().catch(() => {});
 
       await Promise.all([v1, v2]);
@@ -237,6 +243,31 @@ export default function HomePage() {
           </div>
           <Button size="md" onClick={() => open("/v2/review")}>
             Ôn ngay
+          </Button>
+        </Card>
+      )}
+
+      {/* Rèn luyện đứng sau Ôn tập: đến hạn thì ôn trước, rèn luyện là việc
+          chọn làm khi còn thời gian */}
+      {authed && drillCount > 0 && (
+        <Card className="mt-3 flex items-center gap-4 p-5">
+          <span className="flex size-12 shrink-0 items-center justify-center rounded-blob bg-sun-soft text-sun-dark">
+            <Repeat2 size={24} strokeWidth={2.5} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-lg font-extrabold text-ink">
+              Rèn luyện
+            </p>
+            <p className="text-sm text-ink-soft">
+              Giữ khung câu, đổi nội dung sang tình huống mới
+            </p>
+          </div>
+          <Button
+            tone="plain"
+            size="md"
+            onClick={() => open("/v2/practice")}
+          >
+            Luyện
           </Button>
         </Card>
       )}
