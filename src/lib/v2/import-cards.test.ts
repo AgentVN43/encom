@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseV2ImportText } from "./import-cards";
+import { parseFillerBlock, parseV2ImportText } from "./import-cards";
 
 const TOPICS = [
   { id: "t-suggest", name: "Đề nghị" },
@@ -311,5 +311,67 @@ describe("dòng cụm thay thế", () => {
     // Cụm vẫn thuộc câu gần nhất phía trên, tiêu đề chỉ đổi chủ đề
     const res = parse(`${CARD}\n+ a chat = trao đổi`);
     expect(res.valid[0].fillers[0]).toHaveLength(1);
+  });
+});
+
+describe("parseFillerBlock", () => {
+  it("đọc danh sách cụm dán vào ô sửa thẻ", () => {
+    const res = parseFillerBlock(
+      "a quick chat = một buổi trao đổi nhanh\na review = một buổi rà soát",
+      1
+    );
+    expect(res.errors).toEqual([]);
+    expect(res.fillers).toEqual([
+      { filler_text: "a quick chat", filler_vi: "một buổi trao đổi nhanh" },
+      { filler_text: "a review", filler_vi: "một buổi rà soát" },
+    ]);
+  });
+
+  it("chấp nhận dấu + đầu dòng — kết quả AI mang sẵn dấu đó", () => {
+    const res = parseFillerBlock("+ a quick chat = trao đổi nhanh", 1);
+    expect(res.errors).toEqual([]);
+    expect(res.fillers[0].filler_text).toBe("a quick chat");
+  });
+
+  it("số chỗ trống khớp thì nhận", () => {
+    const res = parseFillerBlock("+2 a solid idea = ý chắc chắn", 2);
+    expect(res.errors).toEqual([]);
+    expect(res.fillers).toHaveLength(1);
+  });
+
+  it("dán nhầm ô thì báo lỗi, KHÔNG im lặng bỏ qua số", () => {
+    const res = parseFillerBlock("+2 a solid idea = ý chắc chắn", 1);
+    expect(res.fillers).toEqual([]);
+    expect(res.errors[0].error).toContain("số 2");
+  });
+
+  it("bỏ qua dòng trống", () => {
+    const res = parseFillerBlock("a = b\n\n   \nc = d", 1);
+    expect(res.fillers).toHaveLength(2);
+    expect(res.errors).toEqual([]);
+  });
+
+  it("dòng hỏng bị loại nhưng dòng lành vẫn nhận", () => {
+    const res = parseFillerBlock("a quick chat\na review = rà soát", 1);
+    expect(res.fillers).toHaveLength(1);
+    expect(res.errors).toHaveLength(1);
+    expect(res.errors[0].line).toBe(1);
+  });
+
+  it("nghĩa tiếng Việt chứa dấu gạch ngang vẫn nguyên vẹn", () => {
+    const res = parseFillerBlock("a chat = trao đổi - nói nhanh", 1);
+    expect(res.fillers[0].filler_vi).toBe("trao đổi - nói nhanh");
+  });
+
+  it("thiếu nghĩa tiếng Việt là lỗi", () => {
+    expect(parseFillerBlock("a chat =", 1).errors[0].error).toContain(
+      "Thiếu nghĩa tiếng Việt"
+    );
+  });
+
+  it("văn bản rỗng không sinh gì", () => {
+    const res = parseFillerBlock("", 1);
+    expect(res.fillers).toEqual([]);
+    expect(res.errors).toEqual([]);
   });
 });

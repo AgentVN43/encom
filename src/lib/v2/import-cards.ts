@@ -226,6 +226,75 @@ function directiveError(
 }
 
 /**
+ * Tách `tiếng Anh = nghĩa tiếng Việt`.
+ *
+ * Trả về chuỗi lỗi thay vì ném ngoại lệ: cả hai chỗ gọi đều cần lý do hỏng để
+ * hiện cho người soạn, không phải để dừng luồng.
+ */
+function splitFiller(body: string): DraftFiller | string {
+  const eq = body.indexOf("=");
+  if (eq === -1) return "Thiếu dấu '=' giữa cụm tiếng Anh và nghĩa tiếng Việt";
+  const filler_text = body.slice(0, eq).trim();
+  const filler_vi = body.slice(eq + 1).trim();
+  if (!filler_text) return "Thiếu cụm tiếng Anh";
+  // Không có nghĩa thì bài Rèn luyện không nêu được tình huống để hỏi
+  if (!filler_vi) return "Thiếu nghĩa tiếng Việt của cụm";
+  return { filler_text, filler_vi };
+}
+
+export interface ParsedFillerBlock {
+  fillers: DraftFiller[];
+  errors: { line: number; raw: string; error: string }[];
+}
+
+/**
+ * Đọc một khối cụm dán vào ô sửa thẻ.
+ *
+ * Chấp nhận cả dạng có dấu `+` đầu dòng: kết quả AI trả về mang sẵn dấu đó,
+ * bắt người soạn xoá tay từng dòng là việc thừa.
+ *
+ * `slotNumber` (đếm từ 1) để bắt lỗi dán nhầm ô: dán `+2 ...` vào ô của chỗ
+ * trống thứ nhất mà im lặng bỏ qua số 2 thì cụm vào sai chỗ, sau rất khó lần.
+ */
+export function parseFillerBlock(
+  text: string,
+  slotNumber: number
+): ParsedFillerBlock {
+  const fillers: DraftFiller[] = [];
+  const errors: ParsedFillerBlock["errors"] = [];
+
+  text.split(/\r?\n/).forEach((raw, i) => {
+    const trimmed = raw.trim();
+    if (!trimmed) return;
+    const line = i + 1;
+
+    let body = trimmed;
+    const prefixed = FILLER_LINE.exec(trimmed);
+    if (prefixed) {
+      const num = prefixed[1] ? Number(prefixed[1]) : slotNumber;
+      if (num !== slotNumber) {
+        errors.push({
+          line,
+          raw: trimmed,
+          error: `Dòng này ghi chỗ trống số ${num}, không phải số ${slotNumber}`,
+        });
+        return;
+      }
+      body = prefixed[2] ?? "";
+    }
+
+    const parsed = splitFiller(body);
+    if (typeof parsed === "string") {
+      errors.push({ line, raw: trimmed, error: parsed });
+      return;
+    }
+    fillers.push(parsed);
+  });
+
+  return { fillers, errors };
+}
+
+/**
  * Đọc một dòng `+` và gắn cụm vào câu ngay phía trên.
  *
  * Trả về mảng rỗng khi thành công — dòng cụm không phải một thẻ nên không sinh
@@ -265,18 +334,9 @@ function readFillerLine(
     );
   }
 
-  const body = match[2] ?? "";
-  const eq = body.indexOf("=");
-  if (eq === -1) {
-    return fail("Thiếu dấu '=' giữa cụm tiếng Anh và nghĩa tiếng Việt");
-  }
-  const filler_text = body.slice(0, eq).trim();
-  const filler_vi = body.slice(eq + 1).trim();
-  if (!filler_text) return fail("Thiếu cụm tiếng Anh");
-  if (!filler_vi) {
-    // Không có nghĩa thì bài Rèn luyện không nêu được tình huống để hỏi
-    return fail("Thiếu nghĩa tiếng Việt của cụm");
-  }
+  const parsed = splitFiller(match[2] ?? "");
+  if (typeof parsed === "string") return fail(parsed);
+  const { filler_text, filler_vi } = parsed;
 
   while (target.fillers.length <= slotIndex) target.fillers.push([]);
   target.fillers[slotIndex].push({ filler_text, filler_vi });
