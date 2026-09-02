@@ -641,6 +641,8 @@ export interface V2CardWithChunks {
   english_text: string;
   register: V2Register;
   chunks: Pick<V2Chunk, "text" | "kind">[];
+  /** Cụm thay thế theo VỊ TRÍ chỗ trống — `[0]` là chỗ trống đầu tiên */
+  fillers?: DraftFiller[][];
 }
 
 /**
@@ -689,8 +691,12 @@ export async function createV2CardsWithChunks(
     if (linkError) throw linkError;
   }
 
+  // Id mẩu cũng sinh ở client, cùng lý do như id thẻ: cụm thay thế cần biết
+  // `slot_chunk_id` TRƯỚC khi ghi, mà thứ tự mảng trả về của INSERT nhiều dòng
+  // không được đảm bảo nên không ghép ngược lại được.
   const chunks = rows.flatMap((r, i) =>
     r.chunks.map((c, j) => ({
+      id: crypto.randomUUID(),
       card_id: cards[i].id,
       text: c.text,
       kind: c.kind,
@@ -700,6 +706,31 @@ export async function createV2CardsWithChunks(
   if (chunks.length > 0) {
     const { error: chunkError } = await supabase.from("v2_chunks").insert(chunks);
     if (chunkError) throw chunkError;
+  }
+
+  // Cụm thay thế khoá theo vị trí chỗ trống, nên phải lọc ra riêng mẩu `slot`
+  // của từng thẻ rồi đếm theo thứ tự xuất hiện
+  const fillerRows = rows.flatMap((r, i) => {
+    if (!r.fillers?.length) return [];
+    const slots = chunks.filter(
+      (c) => c.card_id === cards[i].id && c.kind === "slot"
+    );
+    return r.fillers.flatMap((group, slotIndex) => {
+      const slot = slots[slotIndex];
+      if (!slot) return [];
+      return group.map((f, pos) => ({
+        slot_chunk_id: slot.id,
+        filler_text: f.filler_text,
+        filler_vi: f.filler_vi,
+        position: pos,
+      }));
+    });
+  });
+  if (fillerRows.length > 0) {
+    const { error: fillerError } = await supabase
+      .from("v2_substitution_fillers")
+      .insert(fillerRows);
+    if (fillerError) throw fillerError;
   }
 
   return cards.length;

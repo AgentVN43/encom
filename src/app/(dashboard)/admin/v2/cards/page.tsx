@@ -706,6 +706,8 @@ export default function AdminV2CardsPage() {
                       <Text type="secondary" className="mt-1 block text-xs">
                         {r.vietnamese_text} · {REGISTER_LABEL[r.register]} ·{" "}
                         {topics.find((t) => t.id === r.topic_id)?.name ?? "?"}
+                        {r.fillers.flat().length > 0 &&
+                          ` · ${r.fillers.flat().length} cụm thay thế`}
                       </Text>
                     </div>
                   ))}

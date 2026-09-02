@@ -1,5 +1,6 @@
 import { chunksToSentence, parseChunks, type DraftChunk } from "./session";
 import type { V2Register } from "./types";
+import type { DraftFiller } from "./db";
 
 /**
  * Nhập hàng loạt câu cho v2.
@@ -10,6 +11,7 @@ import type { V2Register } from "./types";
  *
  *   # Xin lỗi                          ← đổi chủ đề cho các dòng bên dưới
  *   Sorry, [my bad]! - Xin lỗi nhé! - thân mật
+ *   + my mistake = lỗi của mình       ← cụm thay thế cho câu ngay phía trên
  *   └── tiếng Anh, ngoặc vuông  └── tiếng Việt  └── mức trang trọng
  *                                                 (không bắt buộc)
  *
@@ -21,6 +23,18 @@ import type { V2Register } from "./types";
  * Lĩnh vực (Work/Life/Social) vẫn chọn một lần cho cả loạt ở khu admin.
  */
 const SEPARATOR = /\s+-\s+/;
+
+/**
+ * Dòng cụm thay thế: dấu cộng, rồi số thứ tự chỗ trống (bỏ trống = chỗ đầu),
+ * rồi `tiếng Anh = nghĩa tiếng Việt`.
+ *
+ *   + a quick chat = một buổi trao đổi nhanh      → chỗ trống thứ nhất
+ *   +2 a solid idea = một ý tưởng chắc chắn       → chỗ trống thứ hai
+ *
+ * Dùng dấu `=` chứ không dùng lại ` - `: dòng câu đã lấy ` - ` làm dấu tách
+ * cột, mà nghĩa tiếng Việt của cụm cũng có thể chứa gạch ngang.
+ */
+const FILLER_LINE = /^\+\s*(\d*)\s*(.*)$/;
 
 /** Mức mặc định khi dòng nhập không ghi — phần lớn câu là trung tính */
 const DEFAULT_REGISTER: V2Register = "neutral";
@@ -51,6 +65,13 @@ export interface ParsedV2Row {
   raw: string;
   /** Dòng tiêu đề '#' — không phải câu, chỉ đổi chủ đề cho phần bên dưới */
   isHeader?: boolean;
+  /** Dòng cụm '+' — không phải câu, chỉ bổ sung cho câu phía trên */
+  isFiller?: boolean;
+  /**
+   * Cụm thay thế cho từng chỗ trống, khoá theo VỊ TRÍ chỗ trống
+   * (`fillers[0]` là cụm cho chỗ trống đầu tiên của câu).
+   */
+  fillers: DraftFiller[][];
   /** Chủ đề nhận được từ tiêu đề gần nhất phía trên, hoặc chủ đề mặc định */
   topic_id: string;
   vietnamese_text: string;
@@ -76,12 +97,15 @@ export const IMPORT_PLACEHOLDER =
   "Can we schedule [a call] next week? - Mình sắp xếp một cuộc gọi tuần sau nhé? - trung tính\n" +
   "\n" +
   "# Xin lỗi\n" +
-  "Sorry, [my bad]! - Xin lỗi nhé! - thân mật";
+  "Sorry, [my bad]! - Xin lỗi nhé! - thân mật\n" +
+  "+ my mistake = lỗi của mình\n" +
+  "+ my fault = tại mình";
 
 export const IMPORT_HINT =
   "Mỗi dòng một câu: câu tiếng Anh - câu tiếng Việt - mức trang trọng " +
   "(không bắt buộc, mặc định trung tính). Dòng '# Tên chủ đề' đổi chủ đề cho " +
-  "các dòng bên dưới. Đặt trong [ ] phần đổi được.";
+  "các dòng bên dưới. Đặt trong [ ] phần đổi được, rồi thêm dòng " +
+  "'+ cụm tiếng Anh = nghĩa' cho bài Rèn luyện.";
 
 /**
  * Cột cuối có phải mức trang trọng không.
@@ -173,24 +197,90 @@ function parseLine(raw: string, line: number): ParsedV2Row {
     english_text,
     chunks,
     register,
+    fillers: [],
     error,
     warning,
   };
 }
 
-/** Dòng tiêu đề hỏng — giữ lại để báo đúng số dòng cho admin */
-function headerError(line: number, raw: string, error: string): ParsedV2Row {
+/** Dòng chỉ dẫn (# hoặc +) bị hỏng — giữ lại để báo đúng số dòng cho admin */
+function directiveError(
+  line: number,
+  raw: string,
+  error: string,
+  kind: "header" | "filler"
+): ParsedV2Row {
   return {
     line,
     raw,
-    isHeader: true,
+    isHeader: kind === "header",
+    isFiller: kind === "filler",
     topic_id: "",
     vietnamese_text: "",
     english_text: "",
     chunks: [],
     register: DEFAULT_REGISTER,
+    fillers: [],
     error,
   };
+}
+
+/**
+ * Đọc một dòng `+` và gắn cụm vào câu ngay phía trên.
+ *
+ * Trả về mảng rỗng khi thành công — dòng cụm không phải một thẻ nên không sinh
+ * dòng nào; chỉ khi hỏng mới trả về một dòng lỗi để báo đúng số dòng.
+ */
+function readFillerLine(
+  match: RegExpExecArray,
+  raw: string,
+  line: number,
+  rows: ParsedV2Row[]
+): ParsedV2Row[] {
+  const fail = (msg: string) => [directiveError(line, raw, msg, "filler")];
+
+  // Câu gần nhất phía trên, bỏ qua các dòng chỉ dẫn
+  const target = [...rows]
+    .reverse()
+    .find((r) => !r.isHeader && !r.isFiller);
+  if (!target) {
+    return fail("Dòng cụm phải nằm ngay dưới một câu");
+  }
+  if (target.error) {
+    return fail("Câu phía trên đang lỗi nên chưa gắn được cụm");
+  }
+
+  const slots = target.chunks.filter((c) => c.kind === "slot");
+  if (slots.length === 0) {
+    return fail(
+      "Câu phía trên không có chỗ trống nào — đặt [ ] quanh phần đổi được trước"
+    );
+  }
+
+  // Số thứ tự bỏ trống nghĩa là chỗ trống đầu tiên, tiện cho câu chỉ có một chỗ
+  const slotIndex = match[1] ? Number(match[1]) - 1 : 0;
+  if (slotIndex < 0 || slotIndex >= slots.length) {
+    return fail(
+      `Câu phía trên chỉ có ${slots.length} chỗ trống, không có chỗ số ${slotIndex + 1}`
+    );
+  }
+
+  const body = match[2] ?? "";
+  const eq = body.indexOf("=");
+  if (eq === -1) {
+    return fail("Thiếu dấu '=' giữa cụm tiếng Anh và nghĩa tiếng Việt");
+  }
+  const filler_text = body.slice(0, eq).trim();
+  const filler_vi = body.slice(eq + 1).trim();
+  if (!filler_text) return fail("Thiếu cụm tiếng Anh");
+  if (!filler_vi) {
+    // Không có nghĩa thì bài Rèn luyện không nêu được tình huống để hỏi
+    return fail("Thiếu nghĩa tiếng Việt của cụm");
+  }
+
+  while (target.fillers.length <= slotIndex) target.fillers.push([]);
+  target.fillers[slotIndex].push({ filler_text, filler_vi });
+  return [];
 }
 
 /**
@@ -224,15 +314,33 @@ export function parseV2ImportText(
         // Đặt rỗng chứ không giữ chủ đề cũ: tiêu đề hỏng mà vẫn đổ tiếp vào
         // chủ đề trước đó là âm thầm gán sai chức năng cho cả khối bên dưới
         currentTopicId = "";
-        rows.push(headerError(line, trimmed, "Dòng tiêu đề thiếu tên chủ đề"));
+        rows.push(
+          directiveError(
+            line,
+            trimmed,
+            "Dòng tiêu đề thiếu tên chủ đề",
+            "header"
+          )
+        );
       } else if (!found) {
         currentTopicId = "";
         rows.push(
-          headerError(line, trimmed, `Không có chủ đề nào tên "${name}"`)
+          directiveError(
+            line,
+            trimmed,
+            `Không có chủ đề nào tên "${name}"`,
+            "header"
+          )
         );
       } else {
         currentTopicId = found.id;
       }
+      return;
+    }
+
+    const filler = FILLER_LINE.exec(trimmed);
+    if (filler) {
+      rows.push(...readFillerLine(filler, trimmed, line, rows));
       return;
     }
 
@@ -260,8 +368,8 @@ export function parseV2ImportText(
 
   return {
     rows,
-    // Tiêu đề không phải câu nên không tính vào số sẽ nhập
-    valid: rows.filter((r) => !r.error && !r.isHeader),
+    // Dòng chỉ dẫn (# và +) không phải câu nên không tính vào số sẽ nhập
+    valid: rows.filter((r) => !r.error && !r.isHeader && !r.isFiller),
     invalid: rows.filter((r) => r.error),
   };
 }

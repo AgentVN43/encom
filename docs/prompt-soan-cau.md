@@ -53,6 +53,13 @@ FIRST LINE = TOPIC HEADER:
 - NEVER use situation as topic. no Meeting. no Email. no Phone.
 - if no topic in list fits, write "# ???" and stop. do not invent topic.
 
+AFTER EACH SENTENCE = SWAP LINES. ONE PER LINE:
+- shape: "+ english phrase = vietnamese meaning"
+- give 2 swaps per [ ] you wrote. these feed the drill exercise.
+- swap must fit the SAME frame and make real sense.
+- if sentence has two [ ], number them: "+1 ..." and "+2 ...".
+- no [ ] in sentence = no swap lines.
+
 LAST LINE = DOMAIN NOTE. NOT FOR PASTE:
 - write "DOMAIN: " then any of Work, Life, Social that truly fit.
 - pick where person REALLY says this. not where possible.
@@ -62,8 +69,14 @@ input: Can we schedule a call?
 output:
 # Suggest
 Could we possibly arrange [a call]? - Mình có thể sắp xếp một cuộc gọi được không? - trang trọng
++ a meeting = một buổi họp
++ a short discussion = một cuộc trao đổi ngắn
 Can we schedule [a call] next week? - Mình sắp xếp một cuộc gọi tuần sau nhé? - trung tính
++ a quick chat = một buổi trao đổi nhanh
++ a review = một buổi rà soát
 Wanna hop on [a quick call]? - Gọi nhanh chút nhé? - thân mật
++ a video call = một cuộc gọi video
++ a quick sync = một buổi đồng bộ nhanh
 DOMAIN: Work, Social
 
 NO explanation. NO code fence. NO extra words. LINES ONLY.
@@ -74,6 +87,7 @@ NO explanation. NO code fence. NO extra words. LINES ONLY.
 ## Dùng kết quả
 
 1. Chép từ dòng `#` tới dòng cuối cùng **trước** `DOMAIN:` — dán vào ô nhập.
+   Cả dòng câu lẫn dòng `+` đều dán, hệ thống tự tách.
 2. Dòng `DOMAIN:` **không dán**. Đọc nó rồi chọn tay ở ô "Lĩnh vực cho cả loạt".
 3. Xem phần xem trước: mỗi câu hiện các mẩu đã chia, mẩu `slot` màu hổ phách.
    Chia sai thì sửa ngoặc ngay trong ô nhập, không cần hỏi lại AI.
@@ -100,3 +114,5 @@ Sorry about [that] - Xin lỗi nhé - thân mật
   thật sự nói, không phải bản dịch máy móc.
 - **Mức thân mật.** AI thường viết "thân mật" vẫn còn trang trọng. Câu thân mật
   thật thường ngắn hơn nhiều và có rút gọn (*"Wanna…"*, *"Got a sec?"*).
+- **Cụm thay thế.** AI hay đưa cụm không lắp vừa khung câu. Đọc thử cả câu sau
+  khi thay — *"Can we schedule a meeting room?"* nghe xuôi nhưng sai nghĩa.

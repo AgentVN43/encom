@@ -305,8 +305,14 @@ export default function V2LearnPage() {
                       </span>
                     ))}
                   </div>
+                  {/* Chỉ BÁO HIỆU là câu này có khuôn dùng lại được, không dạy
+                      cả bảng biến thể ở đây: người học đang gặp câu lần đầu,
+                      nhồi thêm ba biến thể là quá tải và làm loãng chính câu
+                      gốc. Phần khai triển để dành cho bài Rèn luyện, vài ngày
+                      sau — vừa nhẹ đầu vừa được giãn cách. */}
                   <p className="mt-2 text-xs text-ink-faint">
-                    Viền nét đứt là phần đổi được để dùng cho tình huống khác.
+                    Viền nét đứt là phần đổi được. Bạn sẽ luyện đổi phần này ở{" "}
+                    <strong className="text-ink-soft">Rèn luyện</strong>.
                   </p>
                 </div>
               )}

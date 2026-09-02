@@ -230,3 +230,86 @@ describe("dòng tiêu đề đổi chủ đề", () => {
     );
   });
 });
+
+describe("dòng cụm thay thế", () => {
+  const parse = (text: string) => parseV2ImportText(text, TOPICS, "t-suggest");
+  const CARD = "Can we schedule [a call] next week? - Mình gọi tuần sau nhé?";
+
+  it("gắn cụm vào câu ngay phía trên", () => {
+    const res = parse(`${CARD}\n+ a quick chat = một buổi trao đổi nhanh`);
+    expect(res.valid).toHaveLength(1);
+    expect(res.valid[0].fillers[0]).toEqual([
+      { filler_text: "a quick chat", filler_vi: "một buổi trao đổi nhanh" },
+    ]);
+  });
+
+  it("nhiều dòng cụm dồn vào cùng một chỗ trống", () => {
+    const res = parse(`${CARD}\n+ a chat = trao đổi\n+ a review = rà soát`);
+    expect(res.valid[0].fillers[0]).toHaveLength(2);
+  });
+
+  it("dòng cụm không tính vào số câu sẽ nhập", () => {
+    const res = parse(`${CARD}\n+ a chat = trao đổi`);
+    expect(res.valid).toHaveLength(1);
+  });
+
+  it("số thứ tự chỉ đúng chỗ trống cần gắn", () => {
+    const two = "That [sounds] like [a good plan] - Nghe có vẻ hợp lý";
+    const res = parse(`${two}\n+1 looks = trông có vẻ\n+2 a solid idea = ý chắc`);
+    expect(res.valid[0].fillers[0]).toHaveLength(1);
+    expect(res.valid[0].fillers[1]).toHaveLength(1);
+    expect(res.valid[0].fillers[1][0].filler_text).toBe("a solid idea");
+  });
+
+  it("bỏ trống số thứ tự nghĩa là chỗ trống đầu tiên", () => {
+    const two = "That [sounds] like [a good plan] - Nghe có vẻ hợp lý";
+    const res = parse(`${two}\n+ looks = trông có vẻ`);
+    expect(res.valid[0].fillers[0][0].filler_text).toBe("looks");
+  });
+
+  it("nghĩa tiếng Việt chứa dấu gạch ngang vẫn an toàn", () => {
+    const res = parse(`${CARD}\n+ a chat = trao đổi - nói chuyện nhanh`);
+    expect(res.valid[0].fillers[0][0].filler_vi).toBe(
+      "trao đổi - nói chuyện nhanh"
+    );
+  });
+
+  it("dòng cụm đứng trước mọi câu là lỗi", () => {
+    expect(parse("+ a chat = trao đổi").invalid[0].error).toContain(
+      "phải nằm ngay dưới một câu"
+    );
+  });
+
+  it("câu phía trên không có chỗ trống là lỗi", () => {
+    const res = parse("Sounds good - Nghe hợp lý\n+ a chat = trao đổi");
+    expect(res.invalid[0].error).toContain("không có chỗ trống");
+  });
+
+  it("số thứ tự vượt quá số chỗ trống là lỗi", () => {
+    const res = parse(`${CARD}\n+3 a chat = trao đổi`);
+    expect(res.invalid[0].error).toContain("chỉ có 1 chỗ trống");
+  });
+
+  it("thiếu dấu bằng là lỗi", () => {
+    expect(parse(`${CARD}\n+ a quick chat`).invalid[0].error).toContain("'='");
+  });
+
+  it("thiếu nghĩa tiếng Việt là lỗi — không nêu được tình huống thì vô dụng", () => {
+    expect(parse(`${CARD}\n+ a chat =`).invalid[0].error).toContain(
+      "Thiếu nghĩa tiếng Việt"
+    );
+  });
+
+  it("câu phía trên đang lỗi thì không gắn cụm, báo rõ lý do", () => {
+    const res = parse("thiếu cột tiếng Việt\n+ a chat = trao đổi");
+    expect(
+      res.invalid.some((r) => r.error?.includes("đang lỗi"))
+    ).toBe(true);
+  });
+
+  it("dòng tiêu đề xen giữa không cắt đứt liên kết cụm với câu", () => {
+    // Cụm vẫn thuộc câu gần nhất phía trên, tiêu đề chỉ đổi chủ đề
+    const res = parse(`${CARD}\n+ a chat = trao đổi`);
+    expect(res.valid[0].fillers[0]).toHaveLength(1);
+  });
+});
