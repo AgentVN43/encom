@@ -1,9 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { getDueCards, getTopicChunks, saveReview } from "@/lib/v2/db";
+import {
+  getDueCards,
+  getTopicChunks,
+  saveReview,
+  startV2ReviewSession,
+} from "@/lib/v2/db";
+import { updateStudySession } from "@/lib/db";
 import { buildChunkQuestion, isChunkOrderCorrect } from "@/lib/v2/session";
 import type { ChunkTile as Tile } from "@/lib/v2/session";
 import { gradeFromResult } from "@/lib/v2/srs";
@@ -41,6 +47,17 @@ export default function V2ReviewPage() {
   const [isCorrect, setIsCorrect] = useState(false);
   const [score, setScore] = useState({ correct: 0, wrong: 0 });
   const [done, setDone] = useState(false);
+
+  // Buổi ôn đang ghi. Dùng ref vì cần giá trị mới nhất ngay trong handler,
+  // không đợi re-render.
+  const sessionRef = useRef<{
+    id: string | null;
+    total: number;
+    correct: number;
+    wrong: number;
+  }>({ id: null, total: 0, correct: 0, wrong: 0 });
+  /** Lời gọi tạo dòng đang bay — chặn hai câu sát nhau tạo hai buổi ôn */
+  const creatingRef = useRef<Promise<string> | null>(null);
 
   useEffect(() => cancelSpeech, []);
 
@@ -131,6 +148,44 @@ export default function V2ReviewPage() {
     } catch {
       // Lịch ôn ghi hỏng thì thẻ sẽ hiện lại ở phiên sau — chấp nhận được,
       // không nên chặn người học giữa chừng vì một lần mạng chập chờn
+    }
+
+    void recordSession(userId, correct);
+  };
+
+  /**
+   * Ghi lịch sử buổi ôn để nó hiện ở /progress cùng buổi học từ vựng.
+   *
+   * Dòng chỉ được tạo ở câu trả lời ĐẦU TIÊN nên mở ra rồi thoát không sinh
+   * dữ liệu rác. Mỗi câu sau đó cập nhật `ended_at`, nhờ vậy buổi bỏ dở vẫn có
+   * khoảng thời gian đúng.
+   */
+  const recordSession = async (uid: string, correct: boolean) => {
+    const s = sessionRef.current;
+    s.total += 1;
+    if (correct) s.correct += 1;
+    else s.wrong += 1;
+
+    try {
+      if (!s.id && !creatingRef.current) {
+        const p = startV2ReviewSession(uid, correct);
+        creatingRef.current = p;
+        // Hỏng thì xoá cờ để câu sau còn tạo lại được
+        p.catch(() => {
+          creatingRef.current = null;
+        });
+        s.id = await p;
+        return; // dòng vừa tạo đã mang số liệu của chính câu này
+      }
+      if (!s.id && creatingRef.current) s.id = await creatingRef.current;
+      if (!s.id) return;
+      await updateStudySession(s.id, {
+        total: s.total,
+        correct: s.correct,
+        wrong: s.wrong,
+      });
+    } catch {
+      // Lịch sử là số liệu phụ — hỏng thì bỏ qua, không cản việc ôn
     }
   };
 
@@ -230,7 +285,15 @@ export default function V2ReviewPage() {
   if (!current) return null;
 
   const percent = ((index + 1) / questions.length) * 100;
-  const allPlaced = tray.length === 0 && placed.length > 0;
+  /**
+   * Chỉ cần đặt ít nhất một mẩu là chấm được.
+   *
+   * KHÔNG đòi khay rỗng: mẩu nhiễu sinh ra để nằm lại trong khay, bắt đặt hết
+   * là bắt người học ghép cả mẩu sai vào câu. Cũng không đòi đủ đúng số mẩu
+   * của đáp án — làm vậy là ngầm tiết lộ câu có mấy mẩu, mà đó chính là thứ
+   * người học phải tự nhớ.
+   */
+  const canCheck = placed.length > 0;
 
   return (
     <div className="dotted-bg min-h-dvh pb-40">
@@ -362,7 +425,7 @@ export default function V2ReviewPage() {
               </Button>
             </div>
           ) : (
-            <Button block disabled={!allPlaced} onClick={handleCheck}>
+            <Button block disabled={!canCheck} onClick={handleCheck}>
               Kiểm tra
             </Button>
           )}

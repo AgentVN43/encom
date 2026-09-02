@@ -382,6 +382,69 @@ export async function saveReview(
 }
 
 /**
+ * Mở một buổi ôn v2 trong bảng `study_sessions` dùng chung với v1.
+ *
+ * Ghi chung một bảng chứ không lập bảng riêng, vì màn hình lịch sử phải là
+ * MỘT dòng thời gian: người học không quan tâm hôm qua mình học bằng cơ chế
+ * nào, chỉ quan tâm đã học gì.
+ *
+ * `topic_id` để null: phiên ôn trộn xen kẽ nhiều chủ đề nên không thuộc chủ đề
+ * nào, mà cột đó lại là khoá ngoại trỏ sang bảng `topics` của v1 — nhét id v2
+ * vào là hỏng ràng buộc. `topic_name` giữ nhãn để lịch sử vẫn đọc được.
+ *
+ * Gọi ở câu trả lời ĐẦU TIÊN chứ không phải lúc mở trang, để người chỉ mở ra
+ * xem rồi thoát không sinh dòng rác.
+ */
+export async function startV2ReviewSession(userId: string, isCorrect: boolean) {
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("study_sessions")
+    .insert({
+      user_id: userId,
+      topic_id: null,
+      topic_name: "Ôn tập theo câu",
+      total_questions: 1,
+      correct_count: isCorrect ? 1 : 0,
+      wrong_count: isCorrect ? 0 : 1,
+      started_at: now,
+      ended_at: now,
+    })
+    .select("id")
+    .single();
+  if (error) throw error;
+  return data.id as string;
+}
+
+/** Một dòng tiến độ v2 kèm câu và chủ đề, cho màn hình Tiến độ */
+export interface V2ProgressDetail {
+  card_id: string;
+  streak: number;
+  fsrs_due: string | null;
+  fsrs_state: number;
+  fsrs_reps: number;
+  fsrs_lapses: number;
+  v2_cards: {
+    english_text: string;
+    vietnamese_text: string;
+    topic_id: string;
+    v2_topics: { name: string } | null;
+  };
+}
+
+/** Toàn bộ tiến độ v2 của một người, kèm câu và tên chủ đề */
+export async function getV2ProgressDetail(userId: string) {
+  const { data, error } = await supabase
+    .from("v2_progress")
+    .select(
+      "card_id, streak, fsrs_due, fsrs_state, fsrs_reps, fsrs_lapses, " +
+        "v2_cards!inner(english_text, vietnamese_text, topic_id, v2_topics(name))"
+    )
+    .eq("user_id", userId);
+  if (error) throw error;
+  return (data ?? []) as unknown as V2ProgressDetail[];
+}
+
+/**
  * Log một lượt luyện giai đoạn Vận dụng hoặc Phản xạ.
  *
  * Chỉ để thống kê và tránh lặp lại ngay trong cùng phiên — hai giai đoạn này
