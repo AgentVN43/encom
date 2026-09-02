@@ -10,11 +10,14 @@ import {
   getV2CardCounts,
   getV2Cards,
   getV2Categories,
+  getSubstitutionFillers,
   getV2Chunks,
   getV2Topics,
+  replaceAllFillers,
   replaceChunks,
   setCardCategories,
   updateV2Card,
+  type DraftFiller,
   type V2Category,
   type V2Topic,
 } from "@/lib/v2/db";
@@ -88,6 +91,11 @@ export default function AdminV2CardsPage() {
   const [formTopicId, setFormTopicId] = useState("");
   const [register, setRegister] = useState<V2Register>("neutral");
   const [cardCategories, setCardCategoriesState] = useState<string[]>([]);
+  /**
+   * Cụm thay thế cho từng mẩu `slot`, khoá theo VỊ TRÍ slot (0 = slot đầu).
+   * Không khoá theo id chunk vì id đổi mỗi lần lưu — xem `replaceAllFillers`.
+   */
+  const [fillers, setFillers] = useState<DraftFiller[][]>([]);
   const [position, setPosition] = useState(0);
   const [saving, setSaving] = useState(false);
 
@@ -116,6 +124,11 @@ export default function AdminV2CardsPage() {
   );
   const previewSentence = useMemo(
     () => chunksToSentence(draftChunks),
+    [draftChunks]
+  );
+  /** Mẩu thay được của câu đang soạn — mỗi mẩu là một ô nhập cụm thay thế */
+  const draftSlots = useMemo(
+    () => draftChunks.filter((c) => c.kind === "slot"),
     [draftChunks]
   );
 
@@ -219,11 +232,12 @@ export default function AdminV2CardsPage() {
     setFormTopicId(topicId);
     setRegister("neutral");
     setCardCategoriesState([]);
+    setFillers([]);
     setPosition(cards.length);
     setDrawerOpen(true);
   };
 
-  const openEdit = (card: V2Card) => {
+  const openEdit = async (card: V2Card) => {
     setEditing(card);
     setVietnamese(card.vietnamese_text);
     // Dựng lại dòng có ngoặc từ mẩu đã lưu; thẻ chưa chia mẩu thì lấy câu gốc
@@ -235,7 +249,29 @@ export default function AdminV2CardsPage() {
     setRegister(card.register);
     setCardCategoriesState(catByCard[card.id] ?? []);
     setPosition(card.position);
+    setFillers([]);
     setDrawerOpen(true);
+
+    // Nạp cụm thay thế sau khi mở drawer: chậm hơn một nhịp nhưng không chặn
+    // người soạn nhìn thấy phần còn lại của thẻ
+    const slots = existing
+      .filter((c) => c.kind === "slot")
+      .sort((a, b) => a.position - b.position);
+    if (slots.length === 0) return;
+    try {
+      const rows = await getSubstitutionFillers(slots.map((c) => c.id));
+      // Gom theo VỊ TRÍ slot, khớp với cách `replaceAllFillers` ghi xuống
+      setFillers(
+        slots.map((slot) =>
+          rows
+            .filter((r) => r.slot_chunk_id === slot.id)
+            .sort((a, b) => a.position - b.position)
+            .map((r) => ({ filler_text: r.filler_text, filler_vi: r.filler_vi }))
+        )
+      );
+    } catch {
+      // Chưa chạy migration filler thì coi như chưa có cụm nào
+    }
   };
 
   const handleSave = async () => {
@@ -269,8 +305,11 @@ export default function AdminV2CardsPage() {
         ? (await updateV2Card(editing.id, payload), editing.id)
         : (await createV2Card(payload)).id;
 
-      await replaceChunks(cardId, draftChunks);
+      const savedChunks = await replaceChunks(cardId, draftChunks);
       await setCardCategories(cardId, cardCategories);
+      // Ghi lại cụm thay thế SAU khi chunk mới đã có id — chunk cũ vừa bị xoá
+      // nên cụm cũ cũng mất theo (khoá ngoại CASCADE)
+      await replaceAllFillers(savedChunks, fillers);
 
       message.success(editing ? "Đã cập nhật thẻ" : "Đã tạo thẻ mới");
       setDrawerOpen(false);
@@ -793,6 +832,35 @@ export default function AdminV2CardsPage() {
             </div>
           )}
 
+          {/* Cụm thay thế — chỉ hiện khi câu có mẩu thay được, vì không có
+              slot thì bài Rèn luyện không ra được đề */}
+          {draftSlots.length > 0 && (
+            <div>
+              <FieldLabel
+                label="Cụm thay thế (bài Rèn luyện)"
+                hint="Giữ nguyên khung câu, đổi phần trong ngoặc sang tình huống khác. Mỗi cụm cần cả tiếng Anh lẫn nghĩa tiếng Việt — đề bài nêu tình huống bằng tiếng Việt rồi hỏi dùng cụm nào, thiếu nghĩa thì không ra được đề. Bỏ trống cũng được, chỉ là câu đó không xuất hiện trong bài Rèn luyện."
+              />
+              <div className="space-y-3">
+                {draftSlots.map((slot, slotIndex) => (
+                  <FillerEditor
+                    key={slotIndex}
+                    slotText={slot.text}
+                    rows={fillers[slotIndex] ?? []}
+                    onChange={(next) =>
+                      setFillers((prev) => {
+                        const copy = [...prev];
+                        // Lấp chỗ trống cho các slot đứng trước chưa nhập gì
+                        while (copy.length <= slotIndex) copy.push([]);
+                        copy[slotIndex] = next;
+                        return copy;
+                      })
+                    }
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
           <div>
             <FieldLabel
               label="Mức trang trọng"
@@ -839,5 +907,77 @@ export default function AdminV2CardsPage() {
         </div>
       </Drawer>
     </Screen>
+  );
+}
+
+/**
+ * Ô nhập cụm thay thế cho MỘT mẩu `slot`.
+ *
+ * Mỗi cụm hai ô: tiếng Anh và nghĩa tiếng Việt. Cần cả hai vì bài Rèn luyện
+ * nêu tình huống bằng tiếng Việt rồi hỏi dùng cụm tiếng Anh nào — chỉ có tiếng
+ * Anh thì mọi cụm đều đúng như nhau và không ra được đề.
+ */
+function FillerEditor({
+  slotText,
+  rows,
+  onChange,
+}: {
+  slotText: string;
+  rows: DraftFiller[];
+  onChange: (next: DraftFiller[]) => void;
+}) {
+  const update = (i: number, patch: Partial<DraftFiller>) =>
+    onChange(rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+
+  return (
+    <div className="rounded-xl border border-slate-200 p-3">
+      <Text className="block text-sm font-medium">
+        Thay cho{" "}
+        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-800">
+          {slotText}
+        </span>
+      </Text>
+
+      <div className="mt-2 space-y-2">
+        {rows.map((row, i) => (
+          <div key={i} className="flex items-start gap-2">
+            <Input
+              value={row.filler_text}
+              onChange={(e) => update(i, { filler_text: e.target.value })}
+              placeholder="a quick chat"
+              className="rounded-lg font-mono"
+            />
+            <Input
+              value={row.filler_vi}
+              onChange={(e) => update(i, { filler_vi: e.target.value })}
+              placeholder="một buổi trao đổi nhanh"
+              className="rounded-lg"
+            />
+            <Button
+              type="text"
+              danger
+              icon={<Trash2 size={16} />}
+              onClick={() => onChange(rows.filter((_, idx) => idx !== i))}
+              className="min-h-[40px] min-w-[40px] shrink-0"
+            />
+          </div>
+        ))}
+      </div>
+
+      <Button
+        type="dashed"
+        icon={<Plus size={16} />}
+        onClick={() => onChange([...rows, { filler_text: "", filler_vi: "" }])}
+        className="mt-2 w-full rounded-lg"
+      >
+        Thêm cụm
+      </Button>
+
+      {rows.length === 1 && (
+        <Text type="warning" className="mt-1 block text-xs">
+          Chỉ một cụm thì không có gì để chọn — cần ít nhất hai.
+        </Text>
+      )}
+    </div>
   );
 }

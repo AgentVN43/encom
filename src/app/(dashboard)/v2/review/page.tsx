@@ -26,10 +26,31 @@ import { cancelSpeech, speakText } from "@/lib/utils";
 /** Số câu mỗi phiên ôn — đủ dài để có tác dụng, đủ ngắn để làm lúc nghỉ trưa */
 const REVIEW_LIMIT = 20;
 
+/**
+ * Ghép sai thì bao nhiêu câu nữa mới gặp lại.
+ *
+ * Không đưa lại ngay: trả lời lại khi câu vẫn còn trong đầu là kiểm tra trí
+ * nhớ ngắn hạn, không phải trí nhớ thật. Cũng không đẩy xuống cuối phiên: xa
+ * quá thì mất tác dụng sửa sai ngay trong buổi.
+ */
+const RETRY_GAP = 3;
+
+/**
+ * Một câu được đưa lại tối đa mấy lần trong cùng phiên.
+ *
+ * Có trần vì câu người học chưa nắm sẽ sai mãi, không chặn thì phiên ôn không
+ * bao giờ kết thúc. Hết lượt thì để lịch FSRS lo — nó vốn đã đẩy câu này lên
+ * sớm rồi.
+ */
+const MAX_RETRY = 2;
+
 interface Question {
   card: V2Card;
   tiles: Tile[];
   solution: V2Chunk[];
+  /** Bản chèn lại sau khi ghép sai — cờ nằm ngay trên phần tử hàng đợi để
+   *  không phải đọc ref trong lúc render */
+  isRetry?: boolean;
 }
 
 export default function V2ReviewPage() {
@@ -39,6 +60,18 @@ export default function V2ReviewPage() {
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
+
+  /**
+   * Hàng đợi SỐNG, không phải danh sách cố định: câu ghép sai được chèn lại
+   * vào giữa hàng nên gặp lại ngay trong phiên này.
+   */
+  const [queue, setQueue] = useState<Question[]>([]);
+  /** Tổng số câu KHÁC NHAU — mốc để tính tiến độ, không đổi khi chèn lại */
+  const [totalCards, setTotalCards] = useState(0);
+  /** Câu đã xong hẳn: ghép đúng, hoặc hết lượt làm lại */
+  const [resolved, setResolved] = useState<Set<string>>(new Set());
+  /** Đã đưa lại mấy lần cho từng câu — dùng ref vì đọc ngay trong handler */
+  const retriesRef = useRef<Record<string, number>>({});
 
   const [index, setIndex] = useState(0);
   /** Mẩu đã xếp, theo đúng thứ tự người học đặt */
@@ -106,6 +139,8 @@ export default function V2ReviewPage() {
         }
 
         setQuestions(built);
+        setQueue(built);
+        setTotalCards(built.length);
       } catch (err: unknown) {
         if (cancelled) return;
         setError(err instanceof Error ? err.message : "Không tải được bài ôn");
@@ -119,7 +154,7 @@ export default function V2ReviewPage() {
     };
   }, [router]);
 
-  const current = questions[index];
+  const current = queue[index];
 
   /** Mẩu còn trong khay — suy ra từ `placed` để không giữ hai nguồn sự thật */
   const tray = useMemo(() => {
@@ -191,7 +226,27 @@ export default function V2ReviewPage() {
 
   const handleNext = () => {
     cancelSpeech();
-    if (index < questions.length - 1) {
+    if (!current) return;
+
+    const cardId = current.card.id;
+    const used = retriesRef.current[cardId] ?? 0;
+    // Ghép sai và còn lượt thì chèn lại vào giữa hàng đợi
+    const requeue = !isCorrect && used < MAX_RETRY;
+
+    let nextQueue = queue;
+    if (requeue) {
+      retriesRef.current[cardId] = used + 1;
+      nextQueue = [...queue];
+      // Chèn cách vài câu, kẹp trong độ dài hàng đợi để không rơi ra ngoài
+      const at = Math.min(index + 1 + RETRY_GAP, nextQueue.length);
+      nextQueue.splice(at, 0, { ...current, isRetry: true });
+      setQueue(nextQueue);
+    } else {
+      // Xong hẳn câu này — hoặc đúng, hoặc đã hết lượt làm lại
+      setResolved((prev) => new Set(prev).add(cardId));
+    }
+
+    if (index < nextQueue.length - 1) {
       setIndex((i) => i + 1);
       setPlaced([]);
       setChecked(false);
@@ -284,7 +339,12 @@ export default function V2ReviewPage() {
 
   if (!current) return null;
 
-  const percent = ((index + 1) / questions.length) * 100;
+  // Tiến độ đếm theo câu ĐÃ XONG HẲN trên tổng số câu khác nhau, không theo vị
+  // trí trong hàng đợi — hàng đợi dài ra mỗi lần chèn lại, lấy nó làm mẫu số
+  // thì thanh tiến độ tụt ngược, trông như vừa mất công.
+  const percent = totalCards === 0 ? 0 : (resolved.size / totalCards) * 100;
+  /** Câu này đang là lượt làm lại — nói rõ để người học không tưởng bị lặp lỗi */
+  const isRetry = current.isRetry === true;
   /**
    * Chỉ cần đặt ít nhất một mẩu là chấm được.
    *
@@ -308,10 +368,10 @@ export default function V2ReviewPage() {
             percent={percent}
             tone="grape"
             className="flex-1"
-            label={`Câu ${index + 1} trên ${questions.length}`}
+            label={`Đã xong ${resolved.size} trên ${totalCards} câu`}
           />
           <span className="shrink-0 font-display text-base font-extrabold text-ink-soft tabular-nums">
-            {index + 1}/{questions.length}
+            {resolved.size}/{totalCards}
           </span>
         </div>
 
@@ -321,9 +381,16 @@ export default function V2ReviewPage() {
             checked ? (isCorrect ? "anim-bounce" : "anim-shake") : ""
           }`}
         >
-          <p className="font-display text-sm font-bold uppercase tracking-wide text-ink-soft">
-            Ghép thành câu tiếng Anh
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="font-display text-sm font-bold uppercase tracking-wide text-ink-soft">
+              Ghép thành câu tiếng Anh
+            </p>
+            {isRetry && (
+              <span className="rounded-pill bg-sun-soft px-2 py-0.5 text-xs font-bold text-sun-dark">
+                Làm lại
+              </span>
+            )}
+          </div>
           <p className="mt-2 text-xl font-bold leading-snug text-ink">
             {current.card.vietnamese_text}
           </p>
@@ -421,7 +488,7 @@ export default function V2ReviewPage() {
                 size="md"
                 onClick={handleNext}
               >
-                {index < questions.length - 1 ? "Câu tiếp" : "Xem kết quả"}
+                {index < queue.length - 1 ? "Câu tiếp" : "Xem kết quả"}
               </Button>
             </div>
           ) : (

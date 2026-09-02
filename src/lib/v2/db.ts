@@ -180,12 +180,26 @@ export async function getTopicChunks(topicId: string) {
   return (data ?? []) as unknown as V2Chunk[];
 }
 
+/**
+ * Một cụm thay thế đã duyệt cho mẩu `slot`.
+ *
+ * `filler_vi` là điều kiện để ra được đề: bài drill nêu tình huống bằng tiếng
+ * Việt rồi hỏi dùng cụm tiếng Anh nào. Thiếu nó thì mọi cụm đều đúng như nhau
+ * và bài tập vô nghĩa.
+ */
 export interface V2SubstitutionFiller {
   id: string;
   slot_chunk_id: string;
   filler_text: string;
+  filler_vi: string;
   position: number;
   created_at: string;
+}
+
+/** Cụm thay thế admin đang soạn, chưa có id */
+export interface DraftFiller {
+  filler_text: string;
+  filler_vi: string;
 }
 
 /** Nội dung thay thế đã duyệt cho các mẩu 'slot' của một thẻ */
@@ -669,7 +683,10 @@ export async function replaceChunks(
 }
 
 /** Nội dung thay thế đã duyệt cho một mẩu 'slot' */
-export async function replaceFillers(slotChunkId: string, fillers: string[]) {
+export async function replaceFillers(
+  slotChunkId: string,
+  fillers: DraftFiller[]
+) {
   const { error: delError } = await supabase
     .from("v2_substitution_fillers")
     .delete()
@@ -681,15 +698,41 @@ export async function replaceFillers(slotChunkId: string, fillers: string[]) {
   const { data, error } = await supabase
     .from("v2_substitution_fillers")
     .insert(
-      fillers.map((text, i) => ({
+      fillers.map((f, i) => ({
         slot_chunk_id: slotChunkId,
-        filler_text: text,
+        filler_text: f.filler_text,
+        filler_vi: f.filler_vi,
         position: i,
       }))
     )
     .select();
   if (error) throw error;
   return data as V2SubstitutionFiller[];
+}
+
+/**
+ * Ghi lại cụm thay thế cho MỌI mẩu slot của một thẻ, khoá theo VỊ TRÍ slot.
+ *
+ * Phải khoá theo vị trí chứ không theo id: `replaceChunks` xoá sạch chunk rồi
+ * chèn lại mỗi lần lưu thẻ, mà `v2_substitution_fillers.slot_chunk_id` là khoá
+ * ngoại ON DELETE CASCADE — nên id chunk cũ không còn, và nếu không ghi lại
+ * theo vị trí thì sửa một chữ trong câu là mất sạch cụm đã nhập, không cảnh
+ * báo gì.
+ *
+ * `bySlotIndex[0]` là cụm cho mẩu slot ĐẦU TIÊN của câu, tính theo thứ tự
+ * xuất hiện — không phải theo vị trí trong toàn bộ chunk.
+ */
+export async function replaceAllFillers(
+  chunks: V2Chunk[],
+  bySlotIndex: DraftFiller[][]
+) {
+  const slots = [...chunks]
+    .sort((a, b) => a.position - b.position)
+    .filter((c) => c.kind === "slot");
+
+  for (let i = 0; i < slots.length; i++) {
+    await replaceFillers(slots[i].id, bySlotIndex[i] ?? []);
+  }
 }
 
 export async function createAdjacencyPair(
