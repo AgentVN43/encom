@@ -964,14 +964,32 @@ function FillerEditor({
         ))}
       </div>
 
-      <Button
-        type="dashed"
-        icon={<Plus size={16} />}
-        onClick={() => onChange([...rows, { filler_text: "", filler_vi: "" }])}
-        className="mt-2 w-full rounded-lg"
-      >
-        Thêm cụm
-      </Button>
+      <div className="mt-2 flex gap-2">
+        <Button
+          type="dashed"
+          icon={<Plus size={16} />}
+          onClick={() => onChange([...rows, { filler_text: "", filler_vi: "" }])}
+          className="flex-1 rounded-lg"
+        >
+          Thêm cụm
+        </Button>
+        {/* Cụm gốc phải nằm trong danh sách, nếu không người học luyện toàn
+            cụm mới và không bao giờ gặp lại câu đã học */}
+        {!rows.some((r) => r.filler_text.trim() === slotText.trim()) && (
+          <Button
+            type="dashed"
+            onClick={() =>
+              onChange([
+                { filler_text: slotText, filler_vi: "" },
+                ...rows,
+              ])
+            }
+            className="rounded-lg"
+          >
+            + Cụm gốc
+          </Button>
+        )}
+      </div>
 
       {rows.length === 1 && (
         <Text type="warning" className="mt-1 block text-xs">

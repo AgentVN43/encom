@@ -5,11 +5,13 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import {
   getNewCards,
+  getV2Cards,
   getV2Chunks,
   getV2Topic,
   markUnderstood,
   type V2Topic,
 } from "@/lib/v2/db";
+import { useSearchParams } from "next/navigation";
 import { REGISTER_LABEL } from "@/lib/v2/types";
 import type { V2Card, V2Chunk } from "@/lib/v2/types";
 import { Screen, Loader, EmptyState } from "@/components/ui/Layout";
@@ -26,6 +28,16 @@ const NEW_CARDS_PER_ROUND = 8;
 export default function V2LearnPage() {
   const { topicId } = useParams<{ topicId: string }>();
   const router = useRouter();
+  /**
+   * `?xem=1` bật chế độ XEM LẠI: lướt toàn bộ câu của chủ đề, kể cả câu đã
+   * học, chỉ đọc và nghe.
+   *
+   * Cố tình KHÔNG cho "học lại" theo nghĩa xoá tiến độ: bấm reset mỗi lần thấy
+   * khó thì lịch FSRS không còn đo được gì. Xem lại thì không đụng tiến độ nên
+   * cho thoải mái.
+   */
+  const searchParams = useSearchParams();
+  const reviewOnly = searchParams.get("xem") === "1";
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +72,9 @@ export default function V2LearnPage() {
       try {
         const [topicRow, newCards] = await Promise.all([
           getV2Topic(topicId).catch(() => null),
-          getNewCards(session.user.id, topicId, NEW_CARDS_PER_ROUND),
+          reviewOnly
+            ? getV2Cards(topicId)
+            : getNewCards(session.user.id, topicId, NEW_CARDS_PER_ROUND),
         ]);
         if (cancelled) return;
 
@@ -87,7 +101,7 @@ export default function V2LearnPage() {
     return () => {
       cancelled = true;
     };
-  }, [router, topicId]);
+  }, [router, topicId, reviewOnly]);
 
   const current = cards[index];
 
@@ -98,6 +112,19 @@ export default function V2LearnPage() {
   /** Bấm "Đã hiểu" — không chấm điểm, chỉ đưa thẻ vào hàng chờ ôn tập */
   const handleUnderstood = async () => {
     if (!userId || !current || saving) return;
+
+    // Xem lại thì không ghi gì cả — không đụng lịch ôn của câu đã học
+    if (reviewOnly) {
+      cancelSpeech();
+      if (index < cards.length - 1) {
+        setIndex((i) => i + 1);
+        setRevealed(false);
+      } else {
+        setDone(true);
+      }
+      return;
+    }
+
     setSaving(true);
     try {
       await markUnderstood(userId, current.id);
@@ -142,11 +169,18 @@ export default function V2LearnPage() {
         <EmptyState
           emoji="✅"
           title="Đã học hết chủ đề này"
-          hint="Mọi câu ở đây đều đã vào lịch ôn tập. Quay lại trang chủ để ôn hoặc chọn chủ đề khác."
+          hint="Mọi câu ở đây đều đã vào lịch ôn tập. Bạn có thể xem lại toàn bộ câu mà không ảnh hưởng lịch ôn."
           action={
-            <Button className="mt-2" onClick={() => router.push("/home")}>
-              Về trang chủ
-            </Button>
+            <div className="mt-2 flex flex-col gap-3">
+              <Button
+                onClick={() => router.push(`/v2/learn/${topicId}?xem=1`)}
+              >
+                Xem lại toàn bộ
+              </Button>
+              <Button tone="plain" onClick={() => router.push("/home")}>
+                Về trang chủ
+              </Button>
+            </div>
           }
         />
       </Screen>
@@ -158,8 +192,16 @@ export default function V2LearnPage() {
       <Screen width="narrow" className="py-10">
         <EmptyState
           emoji="🎯"
-          title={`Đã học ${cards.length} câu mới`}
-          hint="Những câu này sẽ xuất hiện trong phần ôn tập theo lịch giãn cách."
+          title={
+            reviewOnly
+              ? `Đã xem lại ${cards.length} câu`
+              : `Đã học ${cards.length} câu mới`
+          }
+          hint={
+            reviewOnly
+              ? "Lịch ôn tập không đổi — xem lại không tính là một lượt ôn."
+              : "Những câu này sẽ xuất hiện trong phần ôn tập theo lịch giãn cách."
+          }
           action={
             <div className="mt-2 flex flex-col gap-3">
               <Button onClick={() => router.push("/v2/review")}>
@@ -201,11 +243,18 @@ export default function V2LearnPage() {
         </div>
 
         <Card key={current.id} className="anim-pop-in mt-4 p-5">
-          {topic && (
-            <p className="font-display text-sm font-bold uppercase tracking-wide text-grape-dark">
-              {topic.name}
-            </p>
-          )}
+          <div className="flex items-center gap-2">
+            {topic && (
+              <p className="font-display text-sm font-bold uppercase tracking-wide text-grape-dark">
+                {topic.name}
+              </p>
+            )}
+            {reviewOnly && (
+              <span className="rounded-pill bg-sky-soft px-2 py-0.5 text-xs font-bold text-sky-dark">
+                Xem lại
+              </span>
+            )}
+          </div>
 
           {/* Mặt trước: nghĩa tiếng Việt + chức năng. Cố tình chưa hiện câu
               tiếng Anh để người học phải tự nghĩ ra trước khi lật */}
@@ -283,7 +332,13 @@ export default function V2LearnPage() {
               loading={saving}
               onClick={handleUnderstood}
             >
-              {index < cards.length - 1 ? "Đã hiểu — câu tiếp" : "Đã hiểu — xong"}
+              {reviewOnly
+                ? index < cards.length - 1
+                  ? "Câu tiếp"
+                  : "Xong"
+                : index < cards.length - 1
+                  ? "Đã hiểu — câu tiếp"
+                  : "Đã hiểu — xong"}
             </Button>
           </Screen>
         </div>

@@ -33,6 +33,15 @@ interface Drill {
   answer: V2SubstitutionFiller;
   /** Các lựa chọn, đã trộn */
   options: V2SubstitutionFiller[];
+  /**
+   * Ví dụ mẫu hiện TRƯỚC khi hỏi — nguyên tắc "cho gặp trước, bắt làm sau".
+   * Nhảy thẳng vào kiểm tra thì người học chưa từng thấy khung câu này dùng
+   * với nội dung khác mà đã bị hỏi, chỉ còn cách đoán.
+   *
+   * Rỗng khi slot có dưới 3 cụm: lúc đó mọi cụm không phải đáp án đều là mẩu
+   * nhiễu, đưa ra làm ví dụ là lộ đáp án.
+   */
+  examples: V2SubstitutionFiller[];
 }
 
 /**
@@ -56,6 +65,8 @@ export default function V2PracticePage() {
 
   const [index, setIndex] = useState(0);
   const [picked, setPicked] = useState<string | null>(null);
+  /** Đang ở pha xem ví dụ, chưa tới pha trả lời */
+  const [showingExamples, setShowingExamples] = useState(true);
   const [score, setScore] = useState({ correct: 0, wrong: 0 });
   const [done, setDone] = useState(false);
 
@@ -107,12 +118,15 @@ export default function V2PracticePage() {
 
           // Mỗi slot ra một đề, cụm đúng bốc ngẫu nhiên trong các cụm đã duyệt
           const answer = shuffleArray(slot.fillers)[0];
+          const others = slot.fillers.filter((f) => f.id !== answer.id);
           built.push({
             card,
             chunks: [...own].sort((a, b) => a.position - b.position),
             slotChunkId: slot.slot_chunk_id,
             answer,
             options: shuffleArray(slot.fillers),
+            // Cần ít nhất 3 cụm mới có cái để làm ví dụ mà không lộ đáp án
+            examples: slot.fillers.length >= 3 ? others.slice(0, 2) : [],
           });
           if (built.length >= DRILL_LIMIT) break;
         }
@@ -150,8 +164,23 @@ export default function V2PracticePage() {
       .replace(/\s+([,.!?;:])/g, "$1");
   }, [current]);
 
+  /** Ghép khung câu với một cụm bất kỳ — dùng cho ví dụ mẫu */
+  const sentenceWith = useCallback(
+    (filler: string) => {
+      if (!current) return "";
+      return current.chunks
+        .map((c) => (c.id === current.slotChunkId ? filler : c.text))
+        .join(" ")
+        .replace(/\s+([,.!?;:])/g, "$1");
+    },
+    [current]
+  );
+
   const handlePick = async (fillerId: string) => {
+    // Chặn theo examples.length chứ không theo cờ: câu không có ví dụ thì cờ
+    // vẫn bật, chặn theo cờ sẽ làm nút hiện ra mà bấm không ăn
     if (!current || !userId || picked) return;
+    if (showingExamples && current.examples.length > 0) return;
     setPicked(fillerId);
 
     const correct = fillerId === current.answer.id;
@@ -172,6 +201,7 @@ export default function V2PracticePage() {
     if (index < drills.length - 1) {
       setIndex((i) => i + 1);
       setPicked(null);
+      setShowingExamples(true);
     } else {
       setDone(true);
     }
@@ -246,6 +276,8 @@ export default function V2PracticePage() {
   if (!current) return null;
 
   const percent = ((index + 1) / drills.length) * 100;
+  /** Còn phải xem ví dụ trước khi được chọn */
+  const needExamples = showingExamples && current.examples.length > 0;
 
   return (
     <div className="dotted-bg min-h-dvh pb-40">
@@ -320,7 +352,38 @@ export default function V2PracticePage() {
           )}
         </Card>
 
-        <div className="mt-4 space-y-3">
+        {/* Pha ví dụ: cho gặp khung câu dùng với nội dung khác TRƯỚC khi hỏi.
+            Người học nhìn ra quy luật thay vì đoán — đó mới là thứ giúp họ tự
+            đặt câu mới sau này. */}
+        {needExamples && (
+          <Card className="anim-slide-in mt-4 p-5">
+            <p className="font-display text-sm font-bold uppercase tracking-wide text-sky-dark">
+              Ví dụ — cùng khung câu này
+            </p>
+            <div className="mt-3 space-y-3">
+              {current.examples.map((ex) => (
+                <div key={ex.id}>
+                  <p className="font-display text-base font-extrabold leading-snug text-ink">
+                    {sentenceWith(ex.filler_text)}
+                  </p>
+                  <p className="text-sm text-ink-soft">{ex.filler_vi}</p>
+                </div>
+              ))}
+            </div>
+            <Button
+              block
+              className="mt-4"
+              onClick={() => setShowingExamples(false)}
+            >
+              Đã hiểu — làm thử
+            </Button>
+          </Card>
+        )}
+
+        <div
+          className={`mt-4 space-y-3 ${needExamples ? "pointer-events-none opacity-40" : ""}`}
+          aria-hidden={needExamples}
+        >
           {current.options.map((opt, i) => {
             let state: OptionState = "idle";
             if (picked) {

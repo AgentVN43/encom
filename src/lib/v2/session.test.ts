@@ -6,7 +6,7 @@ import {
   isChunkOrderCorrect,
   parseChunks,
   slotChunks,
-  CHUNK_DISTRACTOR_COUNT,
+  chunkDistractorCount,
   type ChunkTile,
 } from "./session";
 import type { V2Chunk, V2ChunkKind } from "./types";
@@ -141,9 +141,23 @@ describe("buildChunkQuestion", () => {
     expect(backward.tiles).toHaveLength(5);
   });
 
-  it("mặc định ném thêm đúng số mẩu thừa quy định", () => {
+  it("mặc định lấy số mẩu thừa co giãn theo độ dài câu", () => {
     const q = buildChunkQuestion(cardChunks, pool, undefined, noShuffle);
-    expect(q.tiles).toHaveLength(cardChunks.length + CHUNK_DISTRACTOR_COUNT);
+    // Câu 3 mẩu → 3 mẩu thừa, nhưng nguồn chỉ có 4 mẩu của câu khác
+    expect(q.tiles.length).toBeGreaterThan(cardChunks.length);
+    expect(q.tiles.length).toBeLessThanOrEqual(
+      cardChunks.length + chunkDistractorCount(cardChunks.length)
+    );
+  });
+
+  it("câu càng ngắn càng nhiều mẩu thừa để bù độ khó", () => {
+    // Câu 2 mẩu chỉ có 2 cách xếp — ít nhiễu thì đoán bừa cũng trúng một nửa
+    expect(chunkDistractorCount(2)).toBeGreaterThan(chunkDistractorCount(3));
+    expect(chunkDistractorCount(3)).toBeGreaterThan(chunkDistractorCount(5));
+  });
+
+  it("câu một mẩu vẫn được bù nhiễu nhiều nhất", () => {
+    expect(chunkDistractorCount(1)).toBe(chunkDistractorCount(2));
   });
 });
 

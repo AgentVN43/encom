@@ -4,8 +4,21 @@ import type { V2Chunk, V2ChunkKind } from "./types";
 /** Hàm trộn mảng — tách ra để test truyền bản tất định vào */
 type Shuffle = <T>(items: T[]) => T[];
 
-/** Số mẩu thừa ném thêm vào khay ở bài ghép câu */
-export const CHUNK_DISTRACTOR_COUNT = 2;
+/**
+ * Số mẩu thừa ném thêm vào khay, co giãn theo độ dài câu.
+ *
+ * Hằng số cố định làm câu ngắn quá dễ: câu 2 mẩu + 2 mẩu thừa chỉ có 4 ô và
+ * đúng 2 cách xếp, đoán bừa cũng trúng một nửa. Câu càng ít mẩu thì càng ít
+ * cách xếp sai, nên phải bù bằng nhiều nhiễu hơn.
+ *
+ * Ngược lại câu dài đã đủ khó tự thân — thêm nhiều nhiễu chỉ làm khay rối mắt
+ * chứ không tăng độ khó thật.
+ */
+export function chunkDistractorCount(solutionLength: number): number {
+  if (solutionLength <= 2) return 4;
+  if (solutionLength === 3) return 3;
+  return 2;
+}
 
 /** Một mẩu hiện trên khay để người học kéo vào chỗ trống */
 export interface ChunkTile {
@@ -40,10 +53,12 @@ function normalize(text: string): string {
 export function buildChunkQuestion(
   cardChunks: V2Chunk[],
   pool: V2Chunk[],
-  distractorCount: number = CHUNK_DISTRACTOR_COUNT,
+  distractorCount?: number,
   shuffle: Shuffle = shuffleArray
 ): ChunkQuestion {
   const solution = [...cardChunks].sort((a, b) => a.position - b.position);
+  // Mặc định co giãn theo độ dài câu, không phải hằng số
+  const wanted = distractorCount ?? chunkDistractorCount(solution.length);
 
   const cardIds = new Set(solution.map((c) => c.card_id));
   const seen = new Set(solution.map((c) => normalize(c.text)));
@@ -58,7 +73,7 @@ export function buildChunkQuestion(
     candidates.push(chunk);
   }
 
-  const distractors = shuffle(candidates).slice(0, Math.max(0, distractorCount));
+  const distractors = shuffle(candidates).slice(0, Math.max(0, wanted));
 
   return {
     tiles: shuffle(
