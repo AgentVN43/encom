@@ -35,16 +35,17 @@ interface Drill {
   /** Các lựa chọn, đã trộn */
   options: V2SubstitutionFiller[];
   /**
-   * Ví dụ cùng khung câu, để người học TỰ MỞ khi cần.
+   * Cụm gốc của câu — phần nằm trong ngoặc lúc soạn thẻ.
    *
-   * Trước đây hiện bắt buộc trước mỗi câu hỏi, nhưng như vậy lộ đáp án: slot
-   * có đúng 3 cụm thì ví dụ chiếm 2, còn lại đúng một — suy loại trừ ra ngay.
-   * Chuyển thành gợi ý tự chọn thì người học nào muốn xem sẽ tự chấp nhận việc
-   * bài dễ đi, còn người không mở vẫn được thử sức thật.
+   * Ví dụ mẫu CHỈ được dựng từ cụm này, tuyệt đối không lấy các cụm thay thế
+   * khác. Lý do: `options` là toàn bộ cụm của slot, nên mọi cụm không phải đáp
+   * án đều đang là một lựa chọn — đem chúng ra làm ví dụ chính là in ra danh
+   * sách đáp án sai, người học loại trừ là ra ngay.
    *
-   * Luôn loại cụm đáp án ra, kể cả khi mở: gợi ý mà in thẳng đáp án thì vô nghĩa.
+   * Cụm gốc thì khác: nó là câu người học ĐÃ HỌC, nên đưa ra là nhắc lại thứ
+   * họ vốn biết, và nhiều nhất chỉ loại được một lựa chọn.
    */
-  examples: V2SubstitutionFiller[];
+  originalText: string;
 }
 
 /**
@@ -118,18 +119,27 @@ export default function V2PracticePage() {
           const own = chunksByCard.get(slot.card_id);
           if (!card || !own) continue;
 
-          // Mỗi slot ra một đề, cụm đúng bốc ngẫu nhiên trong các cụm đã duyệt
-          const answer = shuffleArray(slot.fillers)[0];
-          const others = slot.fillers.filter((f) => f.id !== answer.id);
+          const originalText =
+            own.find((c) => c.id === slot.slot_chunk_id)?.text ?? "";
+
+          // Đáp án không được TRÙNG cụm gốc, vì cụm gốc chính là ví dụ mẫu —
+          // trùng thì ví dụ in thẳng đáp án ra
+          const notOriginal = slot.fillers.filter(
+            (f) =>
+              f.filler_text.trim().toLowerCase() !==
+              originalText.trim().toLowerCase()
+          );
+          const answer = shuffleArray(
+            notOriginal.length > 0 ? notOriginal : slot.fillers
+          )[0];
+
           built.push({
             card,
             chunks: [...own].sort((a, b) => a.position - b.position),
             slotChunkId: slot.slot_chunk_id,
             answer,
             options: shuffleArray(slot.fillers),
-            // Cắt còn 3 cho dễ đọc; không cần điều kiện số cụm tối thiểu nữa
-            // vì đây là gợi ý người học tự mở, không phải thứ ép xem
-            examples: others.slice(0, 3),
+            originalText,
           });
           if (built.length >= DRILL_LIMIT) break;
         }
@@ -304,10 +314,10 @@ export default function V2PracticePage() {
             </p>
             {/* Ví dụ để người học TỰ MỞ. Hiện thẳng ra thì slot ít cụm sẽ lộ
                 đáp án qua phép loại trừ — xem chú thích ở `examples`. */}
-            {current.examples.length > 0 && (
+            {current.originalText && (
               <IconButton
                 icon={<Lightbulb size={20} strokeWidth={2.5} />}
-                label="Xem ví dụ cùng khung câu"
+                label="Xem lại câu gốc đã học"
                 tone="sun"
                 onClick={() => setHintOpen(true)}
               />
@@ -387,20 +397,21 @@ export default function V2PracticePage() {
 
       <BottomSheet
         open={hintOpen}
-        title="Ví dụ — cùng khung câu này"
+        title="Câu gốc bạn đã học"
         onClose={() => setHintOpen(false)}
       >
         <div className="space-y-4 pb-2">
-          {current.examples.map((ex) => (
-            <div key={ex.id}>
-              <p className="font-display text-lg font-extrabold leading-snug text-ink">
-                {sentenceWith(ex.filler_text)}
-              </p>
-              <p className="mt-0.5 text-sm text-ink-soft">{ex.filler_vi}</p>
-            </div>
-          ))}
+          <div>
+            <p className="font-display text-lg font-extrabold leading-snug text-ink">
+              {sentenceWith(current.originalText)}
+            </p>
+            <p className="mt-0.5 text-sm text-ink-soft">
+              {current.card.vietnamese_text}
+            </p>
+          </div>
           <p className="border-t-2 border-cloud-deep pt-3 text-sm text-ink-faint">
             Khung câu giữ nguyên, chỉ phần trong ô trống đổi theo tình huống.
+            Đây là câu bạn đã học, không phải đáp án của câu hỏi này.
           </p>
         </div>
       </BottomSheet>

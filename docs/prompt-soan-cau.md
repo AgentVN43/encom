@@ -57,6 +57,13 @@ AFTER EACH SENTENCE = SWAP LINES. ONE PER LINE:
 - shape: "+ english phrase = vietnamese meaning"
 - give 2 swaps per [ ] you wrote. these feed the drill exercise.
 - swap must fit the SAME frame and make real sense.
+- CRITICAL: swaps must differ in MEANING. never synonyms.
+  GOOD: [a call] -> a review / a demo / a workshop   <- different things
+  BAD:  [help you] -> assist you / support you       <- same thing, different words
+  test: read the vietnamese meanings. if two could describe the same
+  situation, the swap set is wrong. rewrite.
+- synonyms belong in SEPARATE sentences at different politeness levels,
+  not as swaps of one [ ].
 - if sentence has two [ ], number them: "+1 ..." and "+2 ...".
 - no [ ] in sentence = no swap lines.
 
@@ -114,5 +121,9 @@ Sorry about [that] - Xin lỗi nhé - thân mật
   thật sự nói, không phải bản dịch máy móc.
 - **Mức thân mật.** AI thường viết "thân mật" vẫn còn trang trọng. Câu thân mật
   thật thường ngắn hơn nhiều và có rút gọn (*"Wanna…"*, *"Got a sec?"*).
-- **Cụm thay thế.** AI hay đưa cụm không lắp vừa khung câu. Đọc thử cả câu sau
-  khi thay — *"Can we schedule a meeting room?"* nghe xuôi nhưng sai nghĩa.
+- **Cụm thay thế.** Hai lỗi hay gặp. Một là cụm không lắp vừa khung —
+  *"Can we schedule a meeting room?"* nghe xuôi nhưng sai nghĩa. Hai là cụm
+  **đồng nghĩa nhau** (*help you / assist you / support you*): bài Rèn luyện
+  nêu tình huống bằng tiếng Việt rồi hỏi dùng cụm nào, mà đồng nghĩa thì không
+  tình huống nào phân biệt nổi — người học chỉ còn cách đoán. Đọc các nghĩa
+  tiếng Việt: hai nghĩa cùng tả được một tình huống là bộ cụm đó hỏng.

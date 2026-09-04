@@ -743,171 +743,199 @@ export default function AdminV2CardsPage() {
         }
       >
         <div className="drawer-handle" />
-        <div className="mx-auto max-w-lg space-y-4">
-          <div>
-            <FieldLabel
-              label="Chức năng giao tiếp"
-              hint="Câu này dùng để LÀM GÌ. Phép thử: tên chủ đề phải điền được vào 'Tôi muốn ___' — 'Tôi muốn xin lỗi' đúng, 'Tôi muốn cuộc họp' sai vì đó là tình huống chứ không phải hành động. Đổi ở đây là chuyển thẻ sang chủ đề khác."
-            />
-            <Select
-              value={formTopicId || undefined}
-              onChange={setFormTopicId}
-              size="large"
-              className="w-full rounded-xl"
-              placeholder="Chọn chức năng"
-              showSearch
-              optionFilterProp="label"
-              options={topics.map((t) => ({ value: t.id, label: t.name }))}
-            />
-          </div>
-
-          <div>
-            <FieldLabel
-              label="Câu tiếng Việt"
-              hint="Mặt trước thẻ. Người học đọc câu này rồi tự nghĩ ra câu tiếng Anh trước khi lật."
-            />
-            <Input.TextArea
-              value={vietnamese}
-              onChange={(e) => setVietnamese(e.target.value)}
-              placeholder="VD: Mình sắp xếp một cuộc gọi tuần sau nhé?"
-              autoSize={{ minRows: 2, maxRows: 4 }}
-              size="large"
-              className="rounded-xl"
-            />
-          </div>
-
-          <div>
-            <FieldLabel
-              label="Câu tiếng Anh"
-              hint={
-                <>
-                  Đặt trong ngoặc vuông phần ĐỔI ĐƯỢC sang tình huống khác,
-                  phần ngoài ngoặc là khung cố định.
-                  <br />
-                  <br />
-                  Ví dụ: Can we schedule [a call] next week?
-                  <br />
-                  <br />
-                  Người học sẽ phải ghép lại đúng thứ tự các mẩu này, nên chia
-                  càng sát nghĩa càng tốt.
-                </>
-              }
-            />
-            <Input.TextArea
-              value={englishLine}
-              onChange={(e) => setEnglishLine(e.target.value)}
-              placeholder="Can we schedule [a call] [next week]?"
-              autoSize={{ minRows: 2, maxRows: 4 }}
-              size="large"
-              className="rounded-xl font-mono"
-            />
-          </div>
-
-          {/* Xem trước: sai ngoặc là thấy ngay, không phải lưu rồi mở lại mới biết */}
-          {draftChunks.length > 0 && (
-            <div className="rounded-xl bg-slate-50 p-3">
-              <Text className="mb-2 block text-xs font-medium">
-                Xem trước — {draftChunks.length} mẩu
-              </Text>
-              <div className="flex flex-wrap gap-1.5">
-                {draftChunks.map((ch, i) => (
-                  <span
-                    key={i}
-                    className={`rounded-full px-2.5 py-1 text-sm font-medium ${
-                      ch.kind === "slot"
-                        ? "bg-amber-100 text-amber-800"
-                        : "bg-white text-slate-700 ring-1 ring-slate-200"
-                    }`}
-                  >
-                    {ch.text}
-                  </span>
-                ))}
-              </div>
-              <Text type="secondary" className="mt-2 block text-xs">
-                Câu lưu xuống: <strong>{previewSentence}</strong>
-              </Text>
-              {draftChunks.length === 1 && (
-                <Text type="warning" className="mt-1 block text-xs">
-                  Chỉ có một mẩu — bài ghép câu sẽ không có gì để xếp. Cân nhắc
-                  chia nhỏ hơn.
-                </Text>
-              )}
-            </div>
-          )}
-
-          {/* Cụm thay thế — chỉ hiện khi câu có mẩu thay được, vì không có
-              slot thì bài Rèn luyện không ra được đề */}
-          {draftSlots.length > 0 && (
+        {/* Hai cột từ lg trở lên: form này dài (chủ đề, hai câu, xem trước,
+            cụm thay thế, mức, lĩnh vực, thứ tự) mà tấm trượt chỉ cao tối đa
+            90dvh — xếp dọc hết thì phải cuộn liên tục giữa lúc soạn.
+            Cột trái là NỘI DUNG CÂU, cột phải là phần phụ trợ. */}
+        <div className="mx-auto max-w-lg lg:grid lg:max-w-5xl lg:grid-cols-2 lg:items-start lg:gap-8">
+          <div className="space-y-4">
             <div>
               <FieldLabel
-                label="Cụm thay thế (bài Rèn luyện)"
-                hint="Giữ nguyên khung câu, đổi phần trong ngoặc sang tình huống khác. Mỗi cụm cần cả tiếng Anh lẫn nghĩa tiếng Việt — đề bài nêu tình huống bằng tiếng Việt rồi hỏi dùng cụm nào, thiếu nghĩa thì không ra được đề. Bỏ trống cũng được, chỉ là câu đó không xuất hiện trong bài Rèn luyện."
+                label="Chức năng giao tiếp"
+                hint="Câu này dùng để LÀM GÌ. Phép thử: tên chủ đề phải điền được vào 'Tôi muốn ___' — 'Tôi muốn xin lỗi' đúng, 'Tôi muốn cuộc họp' sai vì đó là tình huống chứ không phải hành động. Đổi ở đây là chuyển thẻ sang chủ đề khác."
               />
-              <div className="space-y-3">
-                {draftSlots.map((slot, slotIndex) => (
-                  <FillerEditor
-                    key={slotIndex}
-                    slotText={slot.text}
-                    slotNumber={slotIndex + 1}
-                    totalSlots={draftSlots.length}
-                    rows={fillers[slotIndex] ?? []}
-                    onChange={(next) =>
-                      setFillers((prev) => {
-                        const copy = [...prev];
-                        // Lấp chỗ trống cho các slot đứng trước chưa nhập gì
-                        while (copy.length <= slotIndex) copy.push([]);
-                        copy[slotIndex] = next;
-                        return copy;
-                      })
-                    }
-                  />
-                ))}
-              </div>
+              <Select
+                value={formTopicId || undefined}
+                onChange={setFormTopicId}
+                size="large"
+                className="w-full rounded-xl"
+                placeholder="Chọn chức năng"
+                showSearch
+                optionFilterProp="label"
+                options={topics.map((t) => ({ value: t.id, label: t.name }))}
+              />
             </div>
-          )}
 
-          <div>
-            <FieldLabel
-              label="Mức trang trọng"
-              hint="Chọn MỘT. Đây là thứ quyết định câu dùng được với ai — nói 'Got a sec?' với giám đốc là lỗi điển hình. Cùng một chức năng nên soạn đủ ba mức để người học thấy cả thang."
-            />
-            <Select
-              value={register}
-              onChange={setRegister}
-              size="large"
-              className="w-full rounded-xl"
-              options={REGISTER_OPTIONS}
-            />
+            <div>
+              <FieldLabel
+                label="Câu tiếng Việt"
+                hint="Mặt trước thẻ. Người học đọc câu này rồi tự nghĩ ra câu tiếng Anh trước khi lật."
+              />
+              <Input.TextArea
+                value={vietnamese}
+                onChange={(e) => setVietnamese(e.target.value)}
+                placeholder="VD: Mình sắp xếp một cuộc gọi tuần sau nhé?"
+                autoSize={{ minRows: 2, maxRows: 4 }}
+                size="large"
+                className="rounded-xl"
+              />
+            </div>
+
+            <div>
+              <FieldLabel
+                label="Câu tiếng Anh"
+                hint={
+                  <>
+                    Đặt trong ngoặc vuông phần ĐỔI ĐƯỢC sang tình huống khác,
+                    phần ngoài ngoặc là khung cố định.
+                    <br />
+                    <br />
+                    Ví dụ: Can we schedule [a call] next week?
+                    <br />
+                    <br />
+                    Người học sẽ phải ghép lại đúng thứ tự các mẩu này, nên chia
+                    càng sát nghĩa càng tốt.
+                  </>
+                }
+              />
+              <Input.TextArea
+                value={englishLine}
+                onChange={(e) => setEnglishLine(e.target.value)}
+                placeholder="Can we schedule [a call] [next week]?"
+                autoSize={{ minRows: 2, maxRows: 4 }}
+                size="large"
+                className="rounded-xl font-mono"
+              />
+            </div>
+
+            {/* Xem trước: sai ngoặc là thấy ngay, không phải lưu rồi mở lại mới biết */}
+            {draftChunks.length > 0 && (
+              <div className="rounded-xl bg-slate-50 p-3">
+                <Text className="mb-2 block text-xs font-medium">
+                  Xem trước — {draftChunks.length} mẩu
+                </Text>
+                <div className="flex flex-wrap gap-1.5">
+                  {draftChunks.map((ch, i) => (
+                    <span
+                      key={i}
+                      className={`rounded-full px-2.5 py-1 text-sm font-medium ${
+                        ch.kind === "slot"
+                          ? "bg-amber-100 text-amber-800"
+                          : "bg-white text-slate-700 ring-1 ring-slate-200"
+                      }`}
+                    >
+                      {ch.text}
+                    </span>
+                  ))}
+                </div>
+                <Text type="secondary" className="mt-2 block text-xs">
+                  Câu lưu xuống: <strong>{previewSentence}</strong>
+                </Text>
+                {draftChunks.length === 1 && (
+                  <Text type="warning" className="mt-1 block text-xs">
+                    Chỉ có một mẩu — bài ghép câu sẽ không có gì để xếp. Cân nhắc
+                    chia nhỏ hơn.
+                  </Text>
+                )}
+              </div>
+            )}
           </div>
 
-          <div>
-            <FieldLabel
-              label="Lĩnh vực"
-              hint="Chọn được NHIỀU. Một câu như 'Can we schedule a call?' vừa dùng ở Work vừa dùng ở Social — gắn đủ thì người học mới nhận ra nó dùng lại được, thay vì tưởng chỉ hợp một hoàn cảnh."
-            />
-            <Select
-              mode="multiple"
-              value={cardCategories}
-              onChange={setCardCategoriesState}
-              size="large"
-              className="w-full rounded-xl"
-              placeholder="Chọn một hoặc nhiều"
-              options={categories.map((c) => ({ value: c.id, label: c.name }))}
-            />
-          </div>
+          <div className="mt-4 space-y-4 lg:mt-0">
+            {/* Cụm thay thế — chỉ hiện khi câu có mẩu thay được, vì không có
+                slot thì bài Rèn luyện không ra được đề */}
+            {draftSlots.length > 0 && (
+              <div>
+                <FieldLabel
+                  label="Cụm thay thế (bài Rèn luyện)"
+                  hint={
+                    <>
+                      Giữ nguyên khung câu, đổi phần trong ngoặc sang tình huống
+                      khác.
+                      <br />
+                      <br />
+                      QUAN TRỌNG: các cụm phải KHÁC NGHĨA nhau, không phải từ đồng
+                      nghĩa. &quot;a call / a review / a demo&quot; đúng — tình
+                      huống tiếng Việt chỉ được đúng một cái. &quot;help you /
+                      assist you / support you&quot; SAI — cùng nghĩa nên không
+                      tình huống nào phân biệt nổi, người học chỉ còn cách đoán.
+                      <br />
+                      <br />
+                      Nhóm từ đồng nghĩa thuộc về các THẺ riêng ở mức trang trọng
+                      khác nhau, không phải cụm của một chỗ trống.
+                      <br />
+                      <br />
+                      Bỏ trống cũng được, chỉ là câu đó không xuất hiện trong bài
+                      Rèn luyện.
+                    </>
+                  }
+                />
+                <div className="space-y-3">
+                  {draftSlots.map((slot, slotIndex) => (
+                    <FillerEditor
+                      key={slotIndex}
+                      slotText={slot.text}
+                      slotNumber={slotIndex + 1}
+                      totalSlots={draftSlots.length}
+                      rows={fillers[slotIndex] ?? []}
+                      onChange={(next) =>
+                        setFillers((prev) => {
+                          const copy = [...prev];
+                          // Lấp chỗ trống cho các slot đứng trước chưa nhập gì
+                          while (copy.length <= slotIndex) copy.push([]);
+                          copy[slotIndex] = next;
+                          return copy;
+                        })
+                      }
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
 
-          <div>
-            <FieldLabel
-              label="Thứ tự hiển thị"
-              hint="Số nhỏ hiện trước trong danh sách thẻ của chủ đề."
-            />
-            <InputNumber
-              value={position}
-              onChange={(v) => setPosition(v ?? 0)}
-              min={0}
-              size="large"
-              className="w-full rounded-xl"
-            />
+            <div>
+              <FieldLabel
+                label="Mức trang trọng"
+                hint="Chọn MỘT. Đây là thứ quyết định câu dùng được với ai — nói 'Got a sec?' với giám đốc là lỗi điển hình. Cùng một chức năng nên soạn đủ ba mức để người học thấy cả thang."
+              />
+              <Select
+                value={register}
+                onChange={setRegister}
+                size="large"
+                className="w-full rounded-xl"
+                options={REGISTER_OPTIONS}
+              />
+            </div>
+
+            <div>
+              <FieldLabel
+                label="Lĩnh vực"
+                hint="Chọn được NHIỀU. Một câu như 'Can we schedule a call?' vừa dùng ở Work vừa dùng ở Social — gắn đủ thì người học mới nhận ra nó dùng lại được, thay vì tưởng chỉ hợp một hoàn cảnh."
+              />
+              <Select
+                mode="multiple"
+                value={cardCategories}
+                onChange={setCardCategoriesState}
+                size="large"
+                className="w-full rounded-xl"
+                placeholder="Chọn một hoặc nhiều"
+                options={categories.map((c) => ({ value: c.id, label: c.name }))}
+              />
+            </div>
+
+            <div>
+              <FieldLabel
+                label="Thứ tự hiển thị"
+                hint="Số nhỏ hiện trước trong danh sách thẻ của chủ đề."
+              />
+              <InputNumber
+                value={position}
+                onChange={(v) => setPosition(v ?? 0)}
+                min={0}
+                size="large"
+                className="w-full rounded-xl"
+              />
+            </div>
           </div>
         </div>
       </Drawer>
