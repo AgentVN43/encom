@@ -179,7 +179,11 @@ Props: `text`, `state` (`tray` · `placed` · `correct` · `wrong`), `isSlot`, `
 
 ### Drawer đáy ở khu admin — class `bottom-sheet`
 
-Khu quản trị dùng `Drawer` của antd với `rootClassName="bottom-sheet"`. Cả ba lớp đều phải chặn chiều cao, **không chỉ lớp ngoài cùng**: các Drawer đặt `wrapper: { height: "auto" }`, nên nếu `.ant-drawer-content` không có `max-height` thì thân drawer (`flex: 1; overflow: auto`) không có gì để co lại — nó dài ra rồi bị lớp ngoài cắt cụt mà **không có thanh cuộn**, và nút Lưu biến mất khỏi màn hình.
+Khu quản trị dùng `Drawer` của antd với `rootClassName="bottom-sheet"`.
+
+**Tên class của antd 6 khác antd 5** — lớp giữa là `.ant-drawer-section`, không phải `.ant-drawer-content`. Viết nhầm thì luật CSS im lặng không có tác dụng, không báo lỗi gì. Nâng cấp antd thì **kiểm lại danh sách class** trong `node_modules/@rc-component/drawer` trước khi tin CSS cũ còn chạy.
+
+Ba lớp: `.ant-drawer-content-wrapper` → `.ant-drawer-section` → `.ant-drawer-body`. Lớp giữa phải có `max-height` + `display: flex`, và body phải có `min-height: 0` + `overflow-y: auto`. Thiếu bất kỳ mảnh nào thì thân drawer dài ra rồi bị cắt cụt **không kèm thanh cuộn**, nút Lưu biến mất khỏi màn hình và chỉ zoom nhỏ trình duyệt mới thấy.
 
 Form dài thì chia hai cột từ `lg` (xem [admin/v2/cards](<src/app/(dashboard)/admin/v2/cards/page.tsx>)), chứ đừng ba cột: trong drawer đáy ở màn laptop, ba cột còn ~300px mỗi cột — hẹp hơn một ô nhập đôi.
 

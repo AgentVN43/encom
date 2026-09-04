@@ -258,19 +258,30 @@
   max-height: 90dvh;
 }
 
-/* Phải chặn chiều cao ở CẢ lớp này, không chỉ lớp wrapper bên ngoài.
-   Các Drawer đang đặt `wrapper: { height: "auto" }` nên khối này cao theo nội
-   dung; thân drawer của antd là `flex: 1; overflow: auto`, mà `flex: 1` trong
-   một khối cao theo nội dung thì không có gì để co lại — `overflow: auto`
-   không kích hoạt, thân dài ra rồi bị `max-height` ở wrapper CẮT CỤT mà không
-   có thanh cuộn. Form dài thì phần dưới (kể cả nút Lưu) biến mất khỏi màn
-   hình và cuộn cũng không tới. */
-.bottom-sheet .ant-drawer-content {
+/* CLASS LÀ `-section`, KHÔNG PHẢI `-content`.
+   antd 6 (rc-drawer) đổi tên: `.ant-drawer-content` → `.ant-drawer-section`.
+   Luật cũ nhắm vào `-content` nên chưa bao giờ có tác dụng — kể cả bo góc.
+
+   Phải chặn chiều cao ở lớp này chứ không chỉ ở wrapper: các Drawer đặt
+   `wrapper: { height: "auto" }` nên khối này cao theo nội dung, mà thân drawer
+   là flex item — không có mốc để co thì `overflow` không kích hoạt, thân dài ra
+   rồi bị `max-height` của wrapper CẮT CỤT không kèm thanh cuộn, và nút Lưu biến
+   mất khỏi màn hình.
+
+   `display: flex` khai báo thẳng chứ không dựa vào mặc định của antd: đây là
+   thứ vừa đổi giữa hai phiên bản, không nên phụ thuộc lần nữa. */
+.bottom-sheet .ant-drawer-section {
+  display: flex;
+  flex-direction: column;
   max-height: 90dvh;
   border-radius: 20px 20px 0 0;
 }
 
 .bottom-sheet .ant-drawer-body {
+  /* `min-height: 0` là mấu chốt: mặc định flex item không co xuống dưới kích
+     thước nội dung, nên thiếu nó thì `overflow-y` vẫn vô hiệu. */
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   padding-bottom: calc(16px + var(--safe-bottom));
 }
