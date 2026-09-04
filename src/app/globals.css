@@ -206,6 +206,16 @@
   }
 }
 
+/* Tấm trượt lên từ đáy — bottom sheet */
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
 @keyframes float-soft {
   0%,
   100% {
@@ -230,6 +240,10 @@
 }
 .anim-float {
   animation: float-soft 3s ease-in-out infinite;
+}
+/* Easing thường, không dùng --ease-pop: tấm trượt lên mà nảy trông như lỗi */
+.anim-slide-up {
+  animation: slide-up 0.25s ease-out;
 }
 
 /* ============================================================

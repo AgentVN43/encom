@@ -120,8 +120,9 @@ Class dùng sẵn, không tự viết `@keyframes` mới nếu một trong số 
 | `.anim-shake` | Trả lời **sai** |
 | `.anim-bounce` | Trả lời **đúng** |
 | `.anim-float` | Minh hoạ trôi nhẹ ở màn hình trống |
+| `.anim-slide-up` | Tấm trượt lên từ đáy (`BottomSheet`) |
 
-Easing nảy dùng `--ease-pop`. Base layer đã có `prefers-reduced-motion` tắt toàn bộ animation — nếu viết hiệu ứng bằng JS hoặc inline style thì phải tự tôn trọng thiết lập này.
+Easing nảy dùng `--ease-pop` — trừ `.anim-slide-up`, tấm trượt lên mà nảy trông như lỗi. Base layer đã có `prefers-reduced-motion` tắt toàn bộ animation — nếu viết hiệu ứng bằng JS hoặc inline style thì phải tự tôn trọng thiết lập này.
 
 ---
 
@@ -175,6 +176,14 @@ Một mẩu câu bấm được trong bài ghép câu. **Không dùng `OptionBut
 Props: `text`, `state` (`tray` · `placed` · `correct` · `wrong`), `isSlot`, `disabled`, `onClick`.
 
 `isSlot` vẽ viền nét đứt cho phần thay được của câu. Nét đứt mang nghĩa cố định trong toàn hệ thống: **chỗ này đổi được sang tình huống khác**.
+
+### BottomSheet — [src/components/ui/BottomSheet.tsx](src/components/ui/BottomSheet.tsx)
+
+Tấm trượt lên từ đáy. Props: `open`, `title`, `onClose`, `children`. Đã khoá cuộn nền, đóng bằng Esc và bằng cách chạm ra ngoài.
+
+Chỉ dùng cho nội dung **phụ mà người học tự chọn xem** — gợi ý, ví dụ, chú thích. Thứ bắt buộc phải đọc thì để thẳng trên trang; giấu đi là người cần nhất lại không thấy.
+
+Trượt từ đáy chứ không hiện giữa màn hình: trên điện thoại đáy là chỗ ngón cái với tới, mà đây là thứ mở ra đóng lại liên tục. Không dùng `Drawer` của antd — antd chỉ còn ở khu quản trị.
 
 ### ProgressBar — [src/components/ui/ProgressBar.tsx](src/components/ui/ProgressBar.tsx)
 
