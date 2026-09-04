@@ -177,6 +177,12 @@ Props: `text`, `state` (`tray` · `placed` · `correct` · `wrong`), `isSlot`, `
 
 `isSlot` vẽ viền nét đứt cho phần thay được của câu. Nét đứt mang nghĩa cố định trong toàn hệ thống: **chỗ này đổi được sang tình huống khác**.
 
+### Drawer đáy ở khu admin — class `bottom-sheet`
+
+Khu quản trị dùng `Drawer` của antd với `rootClassName="bottom-sheet"`. Cả ba lớp đều phải chặn chiều cao, **không chỉ lớp ngoài cùng**: các Drawer đặt `wrapper: { height: "auto" }`, nên nếu `.ant-drawer-content` không có `max-height` thì thân drawer (`flex: 1; overflow: auto`) không có gì để co lại — nó dài ra rồi bị lớp ngoài cắt cụt mà **không có thanh cuộn**, và nút Lưu biến mất khỏi màn hình.
+
+Form dài thì chia hai cột từ `lg` (xem [admin/v2/cards](<src/app/(dashboard)/admin/v2/cards/page.tsx>)), chứ đừng ba cột: trong drawer đáy ở màn laptop, ba cột còn ~300px mỗi cột — hẹp hơn một ô nhập đôi.
+
 ### BottomSheet — [src/components/ui/BottomSheet.tsx](src/components/ui/BottomSheet.tsx)
 
 Tấm trượt lên từ đáy. Props: `open`, `title`, `onClose`, `children`. Đã khoá cuộn nền, đóng bằng Esc và bằng cách chạm ra ngoài.

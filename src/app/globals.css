@@ -258,11 +258,20 @@
   max-height: 90dvh;
 }
 
+/* Phải chặn chiều cao ở CẢ lớp này, không chỉ lớp wrapper bên ngoài.
+   Các Drawer đang đặt `wrapper: { height: "auto" }` nên khối này cao theo nội
+   dung; thân drawer của antd là `flex: 1; overflow: auto`, mà `flex: 1` trong
+   một khối cao theo nội dung thì không có gì để co lại — `overflow: auto`
+   không kích hoạt, thân dài ra rồi bị `max-height` ở wrapper CẮT CỤT mà không
+   có thanh cuộn. Form dài thì phần dưới (kể cả nút Lưu) biến mất khỏi màn
+   hình và cuộn cũng không tới. */
 .bottom-sheet .ant-drawer-content {
+  max-height: 90dvh;
   border-radius: 20px 20px 0 0;
 }
 
 .bottom-sheet .ant-drawer-body {
+  overflow-y: auto;
   padding-bottom: calc(16px + var(--safe-bottom));
 }
 
